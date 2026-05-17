@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ceres-scanner"
+version = "0.1.0"
+description = "Ceres: developer-first AI-SAST scanner for models, datasets, RAG docs, prompts, and AI supply chain."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "ceres contributors" }]
+license = { text = "Apache-2.0" }
+keywords = ["security", "sast", "ai", "ml", "llm", "rag", "scanner"]
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.7",
+    "pydantic>=2.6",
+    "PyYAML>=6.0",
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+parquet = ["pyarrow>=14"]
+dev = ["pytest>=8", "pyarrow>=14"]
+docs = ["mkdocs>=1.6", "mkdocs-material>=9.5"]
+
+[project.scripts]
+ceres = "ceres.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ceres"]

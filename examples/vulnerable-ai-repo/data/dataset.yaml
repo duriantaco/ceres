@@ -1,0 +1,10 @@
+dataset:
+  name: support-finetune-v3
+  version: 3
+  owner: ml-platform
+  source: s3://approved-data/
+  files:
+    - path: data/train.csv
+      sha256: "deadbeef0000000000000000000000000000000000000000000000000000beef"
+  source_allowlist:
+    - s3://approved-data/

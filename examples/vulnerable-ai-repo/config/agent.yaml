@@ -1,0 +1,9 @@
+name: support-agent
+model: org/some-model      # ceres.model.config.revision_unpinned
+tools:
+  shell:                   # ceres.agent.tool.shell_without_allowlist
+    enabled: true
+    allowlist: "*"
+  search:
+    enabled: true
+    allowlist: ["duckduckgo", "wikipedia"]
