@@ -105,7 +105,7 @@ limitations.
 
 | Rule ID | Name | Severity | What it catches |
 |---|---|---:|---|
-| `ceres.supplychain.dependency_unpinned` | Dependency unpinned | Medium | Requirements, `pyproject.toml`, or Poetry dependencies are not pinned to exact versions. |
+| `ceres.supplychain.dependency_unpinned` | Dependency unpinned | Low | Optional rule. When `dependency_policy.scan_unpinned_dependencies=true`, requirements, `pyproject.toml`, or Poetry dependencies are checked for exact pins. |
 | `ceres.supplychain.git_dependency_unpinned` | Git dependency unpinned | High | Git dependency is not pinned to a full 40-character commit SHA. |
 | `ceres.supplychain.lockfile_missing` | Lockfile missing | Medium | Dependency manifest exists and `dependency_policy.require_lockfile=true`, but no recognized lockfile is present. |
 | `ceres.supplychain.remote_script_pipe` | Remote script piped to interpreter | High | CI or Docker config pipes `curl`/`wget` output directly into `sh`, `bash`, `python`, or `python3`. |

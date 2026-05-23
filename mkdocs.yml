@@ -74,6 +74,7 @@ nav:
       - Model Security: model-security.md
   - Operations:
       - CI and GitHub Pages: ci.md
+      - Real-World Validation: real-world-validation.md
       - Architecture: architecture.md
   - Project Notes:
       - Roadmap: roadmap.md

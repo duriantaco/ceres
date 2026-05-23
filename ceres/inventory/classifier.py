@@ -51,7 +51,7 @@ DATASET_EXTS = {".csv", ".tsv", ".jsonl", ".ndjson", ".parquet", ".arrow", ".fea
 DATASET_DIR_HINTS = {"data", "datasets", "dataset", "training_data"}
 
 RAG_DOC_EXTS = {".md", ".markdown", ".txt", ".html", ".htm", ".pdf"}
-RAG_DIR_HINTS = {"docs", "doc", "kb", "knowledge_base", "rag", "corpus", "index_source"}
+RAG_DIR_HINTS = {"kb", "knowledge_base", "rag", "corpus", "index_source"}
 
 DEP_NAMES = {
     "requirements.txt",

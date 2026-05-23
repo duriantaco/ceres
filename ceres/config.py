@@ -80,6 +80,7 @@ class RagPolicy(BaseModel):
     block_instruction_like_content: bool = True
     scan_hidden_html: bool = True
     allowed_domains: list[str] = Field(default_factory=list)
+    include_paths: list[str] = Field(default_factory=list)
 
 
 class CodePolicy(BaseModel):
@@ -97,6 +98,7 @@ class DependencyPolicy(BaseModel):
     run_osv_scanner: bool = False
     run_gitleaks: bool = False
     require_lockfile: bool = False
+    scan_unpinned_dependencies: bool = False
     block_critical_cves: bool = True
 
 
@@ -106,6 +108,19 @@ class OutputPolicy(BaseModel):
     sarif: bool = False
     json_: bool = Field(False, alias="json")
     markdown_summary: bool = False
+
+
+class CleanBudgets(BaseModel):
+    total: int | None = None
+    critical: int | None = None
+    high: int | None = None
+    medium: int | None = None
+    low: int | None = None
+    analyzer_failures: int = 0
+
+
+class RealWorldValidationPolicy(BaseModel):
+    clean_budgets: CleanBudgets = Field(default_factory=CleanBudgets)
 
 
 class Policy(BaseModel):
@@ -119,6 +134,7 @@ class Policy(BaseModel):
     code_policy: CodePolicy = Field(default_factory=CodePolicy)
     dependency_policy: DependencyPolicy = Field(default_factory=DependencyPolicy)
     output: OutputPolicy = Field(default_factory=OutputPolicy)
+    real_world_validation: RealWorldValidationPolicy = Field(default_factory=RealWorldValidationPolicy)
     waivers: list[dict[str, Any]] = Field(default_factory=list)
 
     @classmethod
@@ -189,6 +205,7 @@ rag_policy:
   block_instruction_like_content: true
   scan_hidden_html: true
   allowed_domains: []
+  include_paths: []
 
 code_policy:
   block_pickle_load: true
@@ -204,12 +221,22 @@ dependency_policy:
   run_osv_scanner: false
   run_gitleaks: false
   require_lockfile: false
+  scan_unpinned_dependencies: false
   block_critical_cves: true
 
 output:
   sarif: false
   json: false
   markdown_summary: false
+
+real_world_validation:
+  clean_budgets:
+    total:
+    critical:
+    high:
+    medium:
+    low:
+    analyzer_failures: 0
 
 # Example waiver:
 # waivers:

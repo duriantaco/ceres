@@ -110,21 +110,13 @@ def _scan_requirements(path: Path, ctx: AnalyzerContext) -> list[Finding]:
             continue
         if line.startswith("git+") or " git+" in line:
             if not _GIT_SHA_RE.search(line):
-                out.append(
-                    Finding(
-                        rule_id="ceres.supplychain.git_dependency_unpinned",
-                        severity=Severity.HIGH,
-                        layer=Layer.DEPS,
-                        file=rel,
-                        line=lineno,
-                        message="Git dependency is not pinned to a full commit SHA.",
-                        recommendation="Pin git dependencies with @<40-char-commit-sha>.",
-                        evidence=Evidence(matched_text_preview=raw.strip()[:160]),
-                        frameworks=FrameworkMap(owasp_llm=("LLM05",)),
-                    )
-                )
+                out.append(_git_unpinned_finding(ctx, path, lineno, raw.strip()))
             continue
-        if _REQ_NAME_RE.match(line) and not _EXACT_PIN_RE.match(line):
+        if (
+            ctx.policy.dependency_policy.scan_unpinned_dependencies
+            and _REQ_NAME_RE.match(line)
+            and not _EXACT_PIN_RE.match(line)
+        ):
             out.append(_unpinned_finding(ctx, path, lineno, raw.strip()))
     return out
 
@@ -153,11 +145,15 @@ def _scan_pyproject(path: Path, ctx: AnalyzerContext) -> list[Finding]:
                 if isinstance(values, list):
                     deps.extend(values)
     for dep in deps:
-        if isinstance(dep, str) and _looks_unpinned_dep(dep):
+        if not isinstance(dep, str):
+            continue
+        if dep.strip().startswith("git+") and not _GIT_SHA_RE.search(dep.strip()):
+            out.append(_git_unpinned_finding(ctx, path, None, dep))
+        elif ctx.policy.dependency_policy.scan_unpinned_dependencies and _looks_unpinned_dep(dep):
             out.append(_unpinned_finding(ctx, path, None, dep))
 
     poetry_deps = (((data.get("tool") or {}).get("poetry") or {}).get("dependencies") or {})
-    if isinstance(poetry_deps, dict):
+    if ctx.policy.dependency_policy.scan_unpinned_dependencies and isinstance(poetry_deps, dict):
         for name, spec in poetry_deps.items():
             if name.lower() == "python":
                 continue
@@ -185,12 +181,26 @@ def _poetry_spec_unpinned(spec: Any) -> bool:
 def _unpinned_finding(ctx: AnalyzerContext, path: Path, lineno: int | None, preview: str) -> Finding:
     return Finding(
         rule_id="ceres.supplychain.dependency_unpinned",
-        severity=Severity.MEDIUM,
+        severity=Severity.LOW,
         layer=Layer.DEPS,
         file=ctx.rel(path),
         line=lineno,
         message="Dependency is not pinned to an exact version.",
         recommendation="Use exact pins or a lockfile-backed workflow for reproducible builds.",
+        evidence=Evidence(matched_text_preview=preview[:160]),
+        frameworks=FrameworkMap(owasp_llm=("LLM05",)),
+    )
+
+
+def _git_unpinned_finding(ctx: AnalyzerContext, path: Path, lineno: int | None, preview: str) -> Finding:
+    return Finding(
+        rule_id="ceres.supplychain.git_dependency_unpinned",
+        severity=Severity.HIGH,
+        layer=Layer.DEPS,
+        file=ctx.rel(path),
+        line=lineno,
+        message="Git dependency is not pinned to a full commit SHA.",
+        recommendation="Pin git dependencies with @<40-char-commit-sha>.",
         evidence=Evidence(matched_text_preview=preview[:160]),
         frameworks=FrameworkMap(owasp_llm=("LLM05",)),
     )

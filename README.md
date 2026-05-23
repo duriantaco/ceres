@@ -18,7 +18,7 @@ ceres scan .
 | Datasets    | missing manifest, missing/stale hash, source not in allowlist, duplicate-rate spikes, label distribution drift vs. baseline, sudden rare-trigger trigrams |
 | RAG corpus  | prompt-injection phrases (`ignore previous instructions`, etc.), hidden HTML / display:none, HTML comments with instructions, zero-width / bidi control chars, large base64 blobs |
 | Prompts     | user input templated into system context; optional inline secret checks when explicitly enabled |
-| Supply chain| unpinned Hugging Face model references in configs, unpinned dependencies, missing lockfiles, unpinned Docker images, remote install scripts, `pip-audit` results normalized into Ceres findings; `gitleaks` only when explicitly enabled |
+| Supply chain| unpinned Hugging Face model references in configs, unpinned Git dependencies, missing lockfiles, unpinned Docker images, remote install scripts, optional generic dependency pin checks, `pip-audit` results normalized into Ceres findings; `gitleaks` only when explicitly enabled |
 | AI-BOM      | warns when models/datasets are present but no `ai-bom.json` exists |
 
 Full docs:
@@ -81,16 +81,12 @@ CRITICAL  ceres.model.artifact.pickle_format
           Pickle-based model artifact may execute code during deserialization.
 
 HIGH      ceres.rag.instruction.ignore_context
-          docs/vendor_policy.md:5
+          rag/vendor_policy.md:5
           RAG document contains instruction-like text.
 
 HIGH      ceres.dataset.hash_drift
           data/train.csv
           Dataset hash differs from manifest declaration.
-
-MEDIUM    ceres.supplychain.dependency_unpinned
-          requirements.txt:1
-          Dependency is not pinned to an exact version.
 ```
 
 For a local demo from this repository:
@@ -108,6 +104,17 @@ The vulnerable example is expected to fail. The clean example should pass:
 
 ```bash
 ceres scan examples/clean-ai-repo
+```
+
+For real-world regression testing, run the seeded corpus harness. It copies or
+clones AI repos, injects known-bad model/RAG/agent/data/supply-chain changes,
+and fails if the expected rules do not fire:
+
+```bash
+python scripts/real_world_check.py \
+  --corpus examples/real-world-corpus.yml \
+  --workdir /tmp/ceres-real-world \
+  --json-out /tmp/ceres-real-world/report.json
 ```
 
 ## Policy

@@ -39,6 +39,7 @@ code_policy:
 dependency_policy:
   run_pip_audit: true
   run_gitleaks: false
+  scan_unpinned_dependencies: false
 ```
 
 ## Create Baseline

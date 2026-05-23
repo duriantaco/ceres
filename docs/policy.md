@@ -55,10 +55,15 @@ rag_policy:
   block_instruction_like_content: true
   scan_hidden_html: true
   allowed_domains: []
+  include_paths: []
 ```
 
 Set `allowed_sources` and `allowed_domains` in CI to keep data/RAG changes
 reviewable.
+
+By default, Ceres treats `rag/`, `corpus/`, `kb/`, `knowledge_base/`, and
+`index_source/` as retrieval corpus paths. Generic `docs/` folders are skipped
+unless added through `rag_policy.include_paths`.
 
 ## Secret Scanning Boundary
 
@@ -68,10 +73,27 @@ code_policy:
 
 dependency_policy:
   run_gitleaks: false
+  scan_unpinned_dependencies: false
 ```
 
 These defaults are intentional. Ceres is focused on AI pre-production security.
 Use Skylos for generic secret and leak scanning.
+
+## Real-World Validation Budgets
+
+The validation harness can fail a clean corpus scan when findings exceed an
+accepted budget:
+
+```yaml
+real_world_validation:
+  clean_budgets:
+    total:
+    critical: 0
+    high: 20
+    medium:
+    low:
+    analyzer_failures: 0
+```
 
 ## Waivers
 
