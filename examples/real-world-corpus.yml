@@ -1,0 +1,23 @@
+# Example public AI repo corpus for nightly/pre-release validation.
+#
+# The harness clones these repos, seeds known-bad AI supply-chain changes into
+# copied worktrees, and fails if Ceres misses the expected findings.
+repos:
+  - source: https://github.com/deepset-ai/haystack.git
+  - source: https://github.com/run-llama/llama_index.git
+  - source: https://github.com/microsoft/autogen.git
+
+# Omit this list to run every scenario. Keeping it explicit makes corpus
+# changes reviewable when new scenarios are added.
+scenarios:
+  - hf_trust_remote_code
+  - unsafe_torch_load
+  - agent_shell_tool
+  - tool_description_poisoning
+  - rag_prompt_injection
+  - dataset_hash_drift
+  - lora_base_drift
+  - chat_template_drift
+  - safetensors_tensor_drift
+  - git_dependency_unpinned
+  - docker_image_unpinned

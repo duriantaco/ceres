@@ -18,6 +18,7 @@ from ceres.config import Policy
 from ceres.findings.model import Finding, Layer, Severity
 from ceres.findings.severity import gate
 from ceres.findings.waivers import apply_waivers, parse_waivers
+from ceres.inventory.classifier import RAG_DOC_EXTS
 from ceres.inventory.walker import Inventory, build_inventory
 
 
@@ -42,6 +43,7 @@ def run_scan(
     bom_path: Path | None = None,
 ) -> tuple[list[Finding], list[Finding], dict[str, int], bool, Inventory]:
     inv = build_inventory(root)
+    _apply_policy_inventory_includes(inv, root, policy)
     baseline = load_baseline(baseline_path)
     ctx = AnalyzerContext(root=root.resolve(), inventory=inv, policy=policy, baseline=baseline)
 
@@ -89,3 +91,30 @@ def run_scan(
 
     passed, counts = gate(kept, policy.severity_gate.as_dict())
     return kept, suppressed, counts, passed, inv
+
+
+def _apply_policy_inventory_includes(inv: Inventory, root: Path, policy: Policy) -> None:
+    rag_docs = {p.resolve() for p in inv.rag_docs}
+    for include in policy.rag_policy.include_paths:
+        for path in _expand_include(root, include):
+            if path.is_file() and path.suffix.lower() in RAG_DOC_EXTS:
+                rag_docs.add(path.resolve())
+            elif path.is_dir():
+                for child in path.rglob("*"):
+                    if child.is_file() and child.suffix.lower() in RAG_DOC_EXTS:
+                        rag_docs.add(child.resolve())
+    inv.rag_docs = sorted(rag_docs)
+
+
+def _expand_include(root: Path, include: str):
+    include = include.strip()
+    if not include:
+        return []
+    path = Path(include)
+    if path.is_absolute():
+        if any(ch in include for ch in "*?[]"):
+            return list(path.parent.glob(path.name))
+        return [path]
+    if any(ch in include for ch in "*?[]"):
+        return list(root.glob(include))
+    return [root / path]
