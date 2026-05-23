@@ -1,0 +1,42 @@
+name: Real-world AI validation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Ceres
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run unit tests for validation harness
+        run: pytest -q tests/test_real_world_check.py
+
+      - name: Run real-world AI corpus
+        run: |
+          python scripts/real_world_check.py \
+            --corpus examples/real-world-corpus.yml \
+            --workdir /tmp/ceres-real-world \
+            --json-out /tmp/ceres-real-world/report.json
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ceres-real-world-validation
+          path: /tmp/ceres-real-world/report.json
+          if-no-files-found: warn

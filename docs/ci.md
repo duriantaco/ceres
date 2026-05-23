@@ -49,3 +49,11 @@ python -m mkdocs serve
 
 The generated site uses MkDocs Material, but the Ceres docs have their own nav,
 logo, structured data, and teal/green palette.
+
+## Real-World Validation
+
+This repository also includes `.github/workflows/real-world-validation.yml`.
+It runs nightly and through `workflow_dispatch`, installs Ceres, runs the
+real-world harness unit tests, scans the public corpus in
+`examples/real-world-corpus.yml`, and uploads `report.json` as a workflow
+artifact.
