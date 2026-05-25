@@ -14,6 +14,18 @@ _HF_REPO_RE = re.compile(r"^[\w.\-]+/[\w.\-]+$")
 _HF_PINNED_RE = re.compile(r"@[0-9a-fA-F]{7,}$")
 
 _SHELL_KEYS = {"shell", "bash", "exec", "command", "system"}
+_DANGEROUS_TOOL_RE = re.compile(
+    r"(shell|bash|exec|command|terminal|send[_-]?email|email|browser|web|network|file[_-]?(?:write|delete)|filesystem)",
+    re.IGNORECASE,
+)
+_APPROVAL_KEYS = {
+    "approval_required",
+    "require_approval",
+    "human_approval",
+    "confirm_before_use",
+    "requires_confirmation",
+    "tool_approval",
+}
 
 _SECRET_NAME_RE = re.compile(
     r"(api[_-]?key|secret|password|token|access[_-]?key|private[_-]?key|bearer|openai|anthropic)",
@@ -116,6 +128,24 @@ def _walk(node: Any, rel: str, path: list[str], out: list[Finding], ctx: Analyze
                             )
                         )
 
+        allowed_tools = node.get("allowed_tools")
+        if isinstance(allowed_tools, list):
+            risky = [str(t) for t in allowed_tools if isinstance(t, str) and _DANGEROUS_TOOL_RE.search(t)]
+            if risky and not _approval_required(node):
+                severity = Severity.CRITICAL if any(any(k in t.lower() for k in _SHELL_KEYS) for t in risky) else Severity.HIGH
+                out.append(
+                    Finding(
+                        rule_id="ceres.agent.tool.risky_tool_without_approval",
+                        severity=severity,
+                        layer=Layer.AGENT,
+                        file=rel,
+                        message=f"Risky agent tools are allowed without a human approval gate: {', '.join(risky)}.",
+                        recommendation="Require human approval or remove high-impact tools from allowed_tools.",
+                        evidence=Evidence(source=".".join([*path, "allowed_tools"]), matched_text_preview=", ".join(risky)[:160]),
+                        frameworks=FrameworkMap(owasp_llm=("LLM07", "LLM08")),
+                    )
+                )
+
         for k in ("model", "model_name", "model_id", "base_model", "base_model_name_or_path"):
             if k in node and isinstance(node[k], str):
                 v = node[k]
@@ -166,3 +196,13 @@ def _source_allowed(source: str, approved: list[str]) -> bool:
     normalized = source.strip()
     hf_url = f"huggingface.co/{normalized}"
     return any(normalized.startswith(prefix) or hf_url.startswith(prefix) for prefix in approved)
+
+
+def _approval_required(node: dict[str, Any]) -> bool:
+    for key in _APPROVAL_KEYS:
+        value = node.get(key)
+        if value is True:
+            return True
+        if isinstance(value, str) and value.strip().lower() in {"true", "required", "human", "manual"}:
+            return True
+    return False

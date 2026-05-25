@@ -13,6 +13,8 @@ scanning and repo-history secret detection should stay in Skylos.
 - tokenizer, chat-template, and LoRA base-model drift
 - dataset manifest, hash, source, duplicate, label drift, and rare phrase checks
 - RAG prompt-injection and covert-content checks
+- RAG ingestion and retrieval permission-flow heuristics
+- eval and safety-config drift checks
 - MCP/tool description poisoning checks and tool metadata baseline drift
 - AI-BOM generation and coverage checks
 - JSON, SARIF, and CLI reports

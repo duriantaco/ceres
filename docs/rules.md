@@ -21,6 +21,7 @@ ceres list-rules
 | `ceres.model.loader.joblib_deserialize` | Joblib deserialization in code | High | Python code calls `joblib.load(...)`, which is pickle-backed. |
 | `ceres.ai_code.dynamic_execution` | Dynamic code execution | High | Python code calls `eval(...)` or `exec(...)`. |
 | `ceres.agent.tool.shell_without_allowlist` | Shell tool without allowlist | Critical | Agent config or Python tool definition exposes shell/bash/command execution without explicit allowed commands. |
+| `ceres.agent.tool.risky_tool_without_approval` | Risky tool without approval | Critical or High | `allowed_tools` includes shell, email, browser, network, or file-write tools without a human approval gate. |
 | `ceres.agent.tool.description_prompt_injection` | Tool description prompt injection | High | Tool/MCP/OpenAPI metadata or Python tool docstrings contain instruction-like content that can steer an agent. |
 | `ceres.agent.tool.sensitive_context_request` | Sensitive context request in tool metadata | Critical | Tool descriptions ask the agent to read, send, or exfiltrate secrets, credentials, local config, private keys, or environment data. |
 | `ceres.agent.tool.cross_tool_instruction` | Cross-tool instruction | High | One tool description appears to define behavior for another tool or server. |
@@ -85,10 +86,24 @@ limitations.
 | `ceres.dataset.label_distribution_drift` | Label distribution drift | Medium | Label distribution Jensen-Shannon divergence exceeds `data_policy.max_label_jsd` compared with baseline. |
 | `ceres.dataset.rare_phrase_repetition` | Rare phrase repetition | Medium | Multiple new high-frequency trigrams appear compared with baseline, suggesting repeated trigger phrases or injected text. |
 
+## Eval And Safety Config Rules
+
+| Rule ID | Name | Severity | What it catches |
+|---|---|---:|---|
+| `ceres.eval.safety_eval_disabled` | Safety eval disabled | High | Safety eval or safety gate config is disabled, skipped, bypassed, or allowed to fail. |
+| `ceres.eval.regression_gate_disabled` | Regression eval disabled | High | Regression eval or eval gate config is disabled, skipped, bypassed, or allowed to fail. |
+| `ceres.eval.safety_filter_disabled` | Safety filter disabled | High | Content filters, safety filters, guardrails, or output redaction are disabled. |
+| `ceres.eval.safety_threshold_low` | Safety threshold too low | High | Safety score threshold is below `eval_policy.min_safety_score`. |
+| `ceres.eval.generation_temperature_high` | Generation temperature high | Medium | Generation temperature exceeds `eval_policy.max_generation_temperature`. |
+
 ## RAG Corpus Rules
 
 | Rule ID | Name | Severity | What it catches |
 |---|---|---:|---|
+| `ceres.rag.index.user_docs_without_sanitizer` | User docs indexed without sanitizer | High | Python code adds user/upload/request documents to a vector index without an obvious sanitizer, scanner, or quarantine step. |
+| `ceres.rag.retrieval.filter_missing` | RAG retrieval filter missing | High | Python retrieval call lacks tenant, metadata, namespace, or permission filter arguments. |
+| `ceres.rag.retrieval.permission_after_retrieval` | Permission check after retrieval | High | A permission/tenant/access check appears after retrieval in the same function. |
+| `ceres.rag.citations_disabled` | RAG citations disabled | Medium | RAG response citation requirements are disabled in configuration. |
 | `ceres.rag.instruction.ignore_context` | Ignore-context instruction | High | RAG document tells the model to ignore or disregard previous/prior instructions. |
 | `ceres.rag.instruction.system_override` | System override instruction | High or Medium | RAG document attempts to override the system prompt/developer message or declares a new model role. |
 | `ceres.rag.instruction.secret_request` | Secret request instruction | High | RAG document tells the model to reveal secrets or send/leak an API key. |

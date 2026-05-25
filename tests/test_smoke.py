@@ -401,6 +401,67 @@ def test_tool_description_scan_can_be_disabled(tmp_path):
     assert "ceres.agent.tool.sensitive_context_request" not in _rule_ids(findings)
 
 
+def test_eval_safety_config_regressions_are_flagged(tmp_path):
+    repo = tmp_path / "repo"
+    config = repo / "config"
+    config.mkdir(parents=True)
+    (config / "eval.yaml").write_text(
+        "skip_safety_eval: true\n"
+        "regression_eval_enabled: false\n"
+        "enable_content_filter: false\n"
+        "min_safety_score: 0.60\n"
+        "temperature: 1.4\n"
+        "require_citations: false\n"
+    )
+
+    findings, _suppressed, _counts, passed, _inv = run_scan(repo, Policy(), None, None)
+    rule_ids = _rule_ids(findings)
+    assert "ceres.eval.safety_eval_disabled" in rule_ids
+    assert "ceres.eval.regression_gate_disabled" in rule_ids
+    assert "ceres.eval.safety_filter_disabled" in rule_ids
+    assert "ceres.eval.safety_threshold_low" in rule_ids
+    assert "ceres.eval.generation_temperature_high" in rule_ids
+    assert "ceres.rag.citations_disabled" in rule_ids
+    assert passed is False
+
+
+def test_rag_ingestion_and_retrieval_flow_are_flagged(tmp_path):
+    repo = tmp_path / "repo"
+    src = repo / "src"
+    src.mkdir(parents=True)
+    (src / "rag_app.py").write_text(
+        "def ingest(vectorstore, user_uploads):\n"
+        "    vectorstore.add_documents(user_uploads)\n\n"
+        "def answer(retriever, query, user):\n"
+        "    docs = retriever.get_relevant_documents(query)\n"
+        "    check_permission(user, docs)\n"
+        "    return docs\n"
+    )
+
+    findings, _suppressed, _counts, passed, _inv = run_scan(repo, Policy(), None, None)
+    rule_ids = _rule_ids(findings)
+    assert "ceres.rag.index.user_docs_without_sanitizer" in rule_ids
+    assert "ceres.rag.retrieval.filter_missing" in rule_ids
+    assert "ceres.rag.retrieval.permission_after_retrieval" in rule_ids
+    assert passed is False
+
+
+def test_risky_allowed_tools_require_approval(tmp_path):
+    repo = tmp_path / "repo"
+    config = repo / "config"
+    config.mkdir(parents=True)
+    (config / "agent.yaml").write_text(
+        "allowed_tools:\n"
+        "  - search_docs\n"
+        "  - shell\n"
+        "  - send_email\n"
+    )
+
+    findings, _suppressed, _counts, passed, _inv = run_scan(repo, Policy(), None, None)
+    assert "ceres.agent.tool.risky_tool_without_approval" in _rule_ids(findings)
+    assert passed is False
+
+
 def test_analyzer_errors_fail_closed(monkeypatch, tmp_path):
     def boom(_ctx):
         raise RuntimeError("boom")

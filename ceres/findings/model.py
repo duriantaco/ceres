@@ -21,6 +21,7 @@ class Layer(str, Enum):
     CODE = "code"
     MODEL = "model"
     DATA = "data"
+    EVAL = "eval"
     RAG = "rag"
     PROMPT = "prompt"
     AGENT = "agent"

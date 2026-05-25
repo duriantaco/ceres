@@ -10,6 +10,7 @@ from ceres.analyzers.code import python_ast
 from ceres.analyzers.data import manifest as data_manifest
 from ceres.analyzers.deps import static as deps_static
 from ceres.analyzers.deps import gitleaks_adapter, pip_audit_adapter
+from ceres.analyzers.eval import safety_config as eval_safety_config
 from ceres.analyzers.model import scanner as model_scanner
 from ceres.analyzers.prompt import prompt_rules
 from ceres.analyzers.rag import text_extract as rag_extract
@@ -29,6 +30,7 @@ ANALYZERS = [
     ("model.scanner", model_scanner.run),
     ("data.manifest", data_manifest.run),
     ("rag.text", rag_extract.run),
+    ("eval.safety_config", eval_safety_config.run),
     ("prompt.rules", prompt_rules.run),
     ("deps.static", deps_static.run),
     ("deps.pip_audit", pip_audit_adapter.run),
