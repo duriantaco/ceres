@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Ceres mark">
+  <rect width="96" height="96" rx="20" fill="#063f3a"/>
+  <path d="M24 32c0-8.8 7.2-16 16-16h32v12H40a4 4 0 0 0-4 4v32a4 4 0 0 0 4 4h32v12H40c-8.8 0-16-7.2-16-16V32Z" fill="#7fffd4"/>
+  <path d="M44 38h28v8H44v-8Zm0 16h20v8H44v-8Z" fill="#d9fff3"/>
+  <circle cx="72" cy="58" r="6" fill="#b6f24a"/>
+</svg>

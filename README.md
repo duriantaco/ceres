@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/ceres-mark.svg" alt="Ceres logo" width="96" height="96">
+</p>
+
 # Ceres
 
 **Developer-first AI security scanner.** Ceres is AI-SAST for repos: it inspects
