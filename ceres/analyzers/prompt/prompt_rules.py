@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 from ceres.analyzers.base import AnalyzerContext
 from ceres.findings.model import Evidence, Finding, FrameworkMap, Layer, Severity

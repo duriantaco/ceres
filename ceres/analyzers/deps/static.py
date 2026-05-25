@@ -103,7 +103,6 @@ def _scan_requirements(path: Path, ctx: AnalyzerContext) -> list[Finding]:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return out
-    rel = ctx.rel(path)
     for lineno, raw in enumerate(lines, start=1):
         line = _strip_req_comment(raw).strip()
         if not line or line.startswith(("-", "#")):

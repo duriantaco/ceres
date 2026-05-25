@@ -255,9 +255,8 @@ repos:
 ## Status
 
 Ceres is a young project. The MVP covers static rules for code, models, data,
-RAG, prompts, and supply chain, plus AI-BOM and baselines. Dynamic red-team and
-fuzz testing live downstream of `garak` / `promptfoo` / `PyRIT` and are not in
-scope here.
+RAG, prompts, and supply chain, plus AI-BOM and baselines. The current product
+focus is a fast, static, pre-production gate for AI workflow changes.
 
 See `examples/vulnerable-ai-repo/` for an example that trips most rules and
 `examples/clean-ai-repo/` for a quiet baseline.

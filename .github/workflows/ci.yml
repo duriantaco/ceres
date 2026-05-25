@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  test:
+    name: Lint, Test, Docs, Ceres
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: python -m pip install -e ".[dev,docs]"
+
+      - name: Ruff
+        run: python -m ruff check .
+
+      - name: Tests
+        run: python -m pytest -q
+
+      - name: Docs build
+        run: python -m mkdocs build --strict --site-dir site
+
+      - name: Install Ceres scanner adapters
+        if: ${{ github.event_name == 'pull_request' }}
+        run: python -m pip install pip-audit
+
+      - name: Ceres PR diff scan
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          ceres scan . \
+            --diff-base origin/${{ github.base_ref }} \
+            --json-out ceres.json \
+            --sarif-out ceres.sarif \
+            --fail-on critical,high,medium
+
+      - name: Upload Ceres SARIF
+        if: ${{ always() && github.event_name == 'pull_request' && hashFiles('ceres.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ceres.sarif
+
+      - name: Upload Ceres JSON
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ceres-report
+          path: ceres.json
+          if-no-files-found: ignore
+
+  skylos:
+    name: Skylos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Skylos
+        run: python -m pip install skylos
+
+      - name: Skylos scan
+        run: skylos --gate --format github --sarif skylos.sarif .
+
+      - name: Upload Skylos SARIF
+        if: ${{ always() && hashFiles('skylos.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: skylos.sarif
