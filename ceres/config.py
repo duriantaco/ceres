@@ -79,8 +79,18 @@ class RagPolicy(BaseModel):
     require_doc_owner: bool = False
     block_instruction_like_content: bool = True
     scan_hidden_html: bool = True
+    require_retrieval_filter: bool = True
+    require_ingest_sanitizer: bool = True
     allowed_domains: list[str] = Field(default_factory=list)
     include_paths: list[str] = Field(default_factory=list)
+
+
+class EvalPolicy(BaseModel):
+    require_safety_eval: bool = True
+    require_regression_eval: bool = True
+    block_disabled_safety_filters: bool = True
+    min_safety_score: float = 0.90
+    max_generation_temperature: float = 1.0
 
 
 class CodePolicy(BaseModel):
@@ -131,6 +141,7 @@ class Policy(BaseModel):
     model_policy: ModelPolicy = Field(default_factory=ModelPolicy)
     data_policy: DataPolicy = Field(default_factory=DataPolicy)
     rag_policy: RagPolicy = Field(default_factory=RagPolicy)
+    eval_policy: EvalPolicy = Field(default_factory=EvalPolicy)
     code_policy: CodePolicy = Field(default_factory=CodePolicy)
     dependency_policy: DependencyPolicy = Field(default_factory=DependencyPolicy)
     output: OutputPolicy = Field(default_factory=OutputPolicy)
@@ -204,8 +215,17 @@ rag_policy:
   require_doc_owner: false
   block_instruction_like_content: true
   scan_hidden_html: true
+  require_retrieval_filter: true
+  require_ingest_sanitizer: true
   allowed_domains: []
   include_paths: []
+
+eval_policy:
+  require_safety_eval: true
+  require_regression_eval: true
+  block_disabled_safety_filters: true
+  min_safety_score: 0.90
+  max_generation_temperature: 1.0
 
 code_policy:
   block_pickle_load: true

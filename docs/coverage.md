@@ -12,6 +12,7 @@ usually miss.
 - `pickle.load`, `pickle.loads`, `pickle.Unpickler`, and `joblib.load`
 - `eval(...)` and `exec(...)`
 - shell-capable agent tools without allowlists
+- high-impact tools in `allowed_tools` without human approval
 - poisoned tool/MCP descriptions, including hidden instructions, sensitive
   context requests, cross-tool steering, and baseline added/removed/drift checks
 - user input inserted directly into system prompt templates
@@ -38,8 +39,20 @@ usually miss.
 - label distribution drift against baseline
 - repeated rare phrase changes that can indicate trigger injection
 
+## Eval And Safety Config
+
+- disabled or skipped safety eval gates
+- disabled regression eval gates
+- disabled content filters, guardrails, or output redaction
+- safety score thresholds below policy
+- generation temperatures above policy
+
 ## RAG Corpus
 
+- user-uploaded documents indexed without sanitizer/scanner/quarantine calls
+- retrieval calls missing tenant, metadata, namespace, or permission filters
+- permission or tenant checks that happen after retrieval
+- disabled RAG citation requirements
 - instructions to ignore prior/system/developer messages
 - instructions to reveal secrets, invoke tools, execute code, or exfiltrate data
 - hidden HTML and instruction-like comments

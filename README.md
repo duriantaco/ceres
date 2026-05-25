@@ -13,10 +13,11 @@ ceres scan .
 
 | Layer       | Examples |
 |-------------|----------|
-| Code        | `trust_remote_code=True`, `pickle.load`, `torch.load` without `weights_only=True`, `eval`/`exec`, unrestricted agent tools, poisoned tool/MCP descriptions |
+| Code        | `trust_remote_code=True`, `pickle.load`, `torch.load` without `weights_only=True`, `eval`/`exec`, unrestricted agent tools, risky tools without approval, poisoned tool/MCP descriptions |
 | Models      | `.pkl`/`.pickle` artifacts, unsafe formats, unknown source/provenance, suspicious pickle opcodes, missing/changed SHA-256, safetensors tensor/layer drift, NaN/Inf/range anomalies, tokenizer / chat-template / LoRA-base drift |
 | Datasets    | missing manifest, missing/stale hash, source not in allowlist, duplicate-rate spikes, label distribution drift vs. baseline, sudden rare-trigger trigrams |
-| RAG corpus  | prompt-injection phrases (`ignore previous instructions`, etc.), hidden HTML / display:none, HTML comments with instructions, zero-width / bidi control chars, large base64 blobs |
+| Eval/safety | disabled safety or regression eval gates, lowered safety thresholds, disabled filters/guardrails, high generation temperature |
+| RAG corpus  | prompt-injection phrases (`ignore previous instructions`, etc.), unsafe user-doc indexing, missing retrieval filters, permission checks after retrieval, hidden HTML / display:none, HTML comments with instructions, zero-width / bidi control chars, large base64 blobs |
 | Prompts     | user input templated into system context; optional inline secret checks when explicitly enabled |
 | Supply chain| unpinned Hugging Face model references in configs, unpinned Git dependencies, missing lockfiles, unpinned Docker images, remote install scripts, optional generic dependency pin checks, `pip-audit` results normalized into Ceres findings; `gitleaks` only when explicitly enabled |
 | AI-BOM      | warns when models/datasets are present but no `ai-bom.json` exists |

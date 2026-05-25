@@ -13,6 +13,53 @@ _PICKLE_LOAD_NAMES = {"load", "loads", "Unpickler"}
 _AGENT_TOOL_NAMES = {"Tool", "StructuredTool", "ShellTool", "ToolNode"}
 
 _REVISION_KWARGS = {"revision", "commit_hash", "git_revision"}
+_RAG_RETRIEVAL_NAMES = {
+    "similarity_search",
+    "asimilarity_search",
+    "max_marginal_relevance_search",
+    "amax_marginal_relevance_search",
+    "get_relevant_documents",
+    "aget_relevant_documents",
+    "retrieve",
+    "aretrieve",
+}
+_RAG_RETRIEVER_TARGETS = {
+    "retriever",
+    "vector",
+    "vectorstore",
+    "vector_store",
+    "chroma",
+    "pinecone",
+    "weaviate",
+    "qdrant",
+    "milvus",
+    "faiss",
+    "index",
+}
+_RAG_FILTER_KWARGS = {
+    "filter",
+    "filters",
+    "where",
+    "namespace",
+    "tenant",
+    "tenant_id",
+    "user_id",
+    "metadata_filter",
+    "pre_filter",
+    "expr",
+}
+_RAG_INGEST_NAMES = {
+    "add_documents",
+    "aadd_documents",
+    "add_texts",
+    "aadd_texts",
+    "from_documents",
+    "index_documents",
+    "upsert",
+}
+_RAG_SOURCE_RE = re.compile(r"(user|upload|uploaded|request|file|files|raw|untrusted|customer|tenant)", re.IGNORECASE)
+_RAG_SANITIZER_RE = re.compile(r"(sanitize|scrub|filter|moderate|scan|validate|quarantine|redact|pii|allowlist)", re.IGNORECASE)
+_RAG_PERMISSION_RE = re.compile(r"(permission|authorize|authorise|auth|tenant|acl|access|policy|can_access|allowed)", re.IGNORECASE)
 
 _SECRET_NAME_RE = re.compile(
     r"(api[_-]?key|secret|password|token|access[_-]?key|private[_-]?key|bearer)",
@@ -237,6 +284,110 @@ def _scan_module(
                             owasp_llm=("LLM07", "LLM08"),
                         )
 
+    def _scan_rag_flow(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        calls = [n for n in ast.walk(fn) if isinstance(n, ast.Call)]
+        calls.sort(key=lambda n: getattr(n, "lineno", 0))
+
+        permission_lines = [
+            getattr(n, "lineno", 0)
+            for n in calls
+            if _RAG_PERMISSION_RE.search(_qualified(n.func))
+        ]
+        sanitizer_lines = [
+            getattr(n, "lineno", 0)
+            for n in calls
+            if _RAG_SANITIZER_RE.search(_qualified(n.func))
+        ]
+
+        first_retrieval_without_prior_permission: ast.Call | None = None
+        first_retrieval_without_filter: ast.Call | None = None
+        first_user_ingest_without_sanitizer: ast.Call | None = None
+
+        for call in calls:
+            line = getattr(call, "lineno", 0)
+            qual = _qualified(call.func)
+            if _is_rag_retrieval(qual):
+                has_filter = any(kw.arg in _RAG_FILTER_KWARGS for kw in call.keywords if kw.arg)
+                if ctx.policy.rag_policy.require_retrieval_filter and not has_filter and first_retrieval_without_filter is None:
+                    first_retrieval_without_filter = call
+                if (
+                    any(p > line for p in permission_lines)
+                    and not any(0 < p < line for p in permission_lines)
+                    and first_retrieval_without_prior_permission is None
+                ):
+                    first_retrieval_without_prior_permission = call
+
+            if (
+                ctx.policy.rag_policy.require_ingest_sanitizer
+                and _is_rag_ingest(qual)
+                and _call_uses_user_docs(call)
+                and not any(0 < s < line for s in sanitizer_lines)
+                and first_user_ingest_without_sanitizer is None
+            ):
+                first_user_ingest_without_sanitizer = call
+
+        if first_retrieval_without_filter is not None:
+            _add(
+                "ceres.rag.retrieval.filter_missing",
+                Severity.HIGH,
+                Layer.RAG,
+                first_retrieval_without_filter,
+                "RAG retrieval call has no tenant, metadata, namespace, or permission filter.",
+                "Pass an explicit filter/namespace/tenant constraint before retrieving from shared or private corpora.",
+                owasp_llm=("LLM02", "LLM05"),
+            )
+
+        if first_retrieval_without_prior_permission is not None:
+            _add(
+                "ceres.rag.retrieval.permission_after_retrieval",
+                Severity.HIGH,
+                Layer.RAG,
+                first_retrieval_without_prior_permission,
+                "Permission or tenant check appears after retrieval in the same function.",
+                "Check user/tenant permissions before querying the vector index.",
+                owasp_llm=("LLM02", "LLM05"),
+            )
+
+        if first_user_ingest_without_sanitizer is not None:
+            _add(
+                "ceres.rag.index.user_docs_without_sanitizer",
+                Severity.HIGH,
+                Layer.RAG,
+                first_user_ingest_without_sanitizer,
+                "User-controlled documents are indexed without an obvious sanitizer, scanner, or quarantine step.",
+                "Scan, sanitize, and quarantine user-uploaded documents before adding them to a retrieval index.",
+                owasp_llm=("LLM01", "LLM03", "LLM05"),
+            )
+
+    def _is_rag_retrieval(qual: str) -> bool:
+        lower = qual.lower()
+        tail = lower.rsplit(".", 1)[-1]
+        if tail in _RAG_RETRIEVAL_NAMES:
+            return True
+        if tail in {"invoke", "query", "search"} and any(marker in lower for marker in _RAG_RETRIEVER_TARGETS):
+            return True
+        return False
+
+    def _is_rag_ingest(qual: str) -> bool:
+        lower = qual.lower()
+        tail = lower.rsplit(".", 1)[-1]
+        return tail in _RAG_INGEST_NAMES and any(marker in lower for marker in _RAG_RETRIEVER_TARGETS)
+
+    def _call_uses_user_docs(call: ast.Call) -> bool:
+        chunks: list[str] = []
+        for arg in call.args:
+            chunks.append(_unparse(arg))
+        for kw in call.keywords:
+            if kw.value is not None:
+                chunks.append(_unparse(kw.value))
+        return bool(_RAG_SOURCE_RE.search(" ".join(chunks)))
+
+    def _unparse(node: ast.AST) -> str:
+        try:
+            return ast.unparse(node)
+        except Exception:  # pragma: no cover - ast.unparse is best-effort
+            return ""
+
     def _check_secret_assign(node: ast.Assign) -> None:
         if not isinstance(node.value, ast.Constant) or not isinstance(node.value.value, str):
             return
@@ -265,4 +416,7 @@ def _scan_module(
             break
 
     Visitor().visit(tree)
+    for fn in ast.walk(tree):
+        if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            _scan_rag_flow(fn)
     return findings

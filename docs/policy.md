@@ -54,6 +54,8 @@ rag_policy:
   require_doc_owner: false
   block_instruction_like_content: true
   scan_hidden_html: true
+  require_retrieval_filter: true
+  require_ingest_sanitizer: true
   allowed_domains: []
   include_paths: []
 ```
@@ -64,6 +66,20 @@ reviewable.
 By default, Ceres treats `rag/`, `corpus/`, `kb/`, `knowledge_base/`, and
 `index_source/` as retrieval corpus paths. Generic `docs/` folders are skipped
 unless added through `rag_policy.include_paths`.
+
+## Eval Policy
+
+```yaml
+eval_policy:
+  require_safety_eval: true
+  require_regression_eval: true
+  block_disabled_safety_filters: true
+  min_safety_score: 0.90
+  max_generation_temperature: 1.0
+```
+
+These gates catch config changes that skip evals, lower safety thresholds, or
+turn off content filters before deployment.
 
 ## Secret Scanning Boundary
 
