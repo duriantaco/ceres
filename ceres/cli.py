@@ -11,6 +11,8 @@ from ceres import __version__
 from ceres.analyzers.bom.aibom import write_bom
 from ceres.baseline.store import build_baseline, save_baseline
 from ceres.config import DEFAULT_POLICY_YAML, Policy
+from ceres.findings.severity import gate
+from ceres.gitdiff import DiffError, collect_git_diff, filter_findings_for_diff
 from ceres.inventory.walker import build_inventory
 from ceres.reporters.cli import render as render_cli
 from ceres.reporters.json_reporter import write_json
@@ -82,6 +84,11 @@ def scan(
     fail_on: Optional[str] = typer.Option(
         None, "--fail-on", help="Override gate: comma list of severities to fail on (critical,high,medium,low)"
     ),
+    diff_base: Optional[str] = typer.Option(
+        None,
+        "--diff-base",
+        help="Only report findings introduced in files or lines changed since this git ref.",
+    ),
 ) -> None:
     root = _repo_root(path)
     resolved_policy = _under_root(root, policy_path)
@@ -102,13 +109,44 @@ def scan(
 
     bom = _under_root(root, bom)
 
+    diff_context = None
+    original_finding_count = None
+    if diff_base:
+        try:
+            diff_context = collect_git_diff(root, diff_base)
+        except DiffError as e:
+            console.print(f"[red]Diff mode failed:[/red] {e}")
+            raise typer.Exit(2) from e
+
     findings, suppressed, counts, passed, _inv = run_scan(root, policy, baseline, bom)
-    render_cli(findings, counts, passed, console=console, severity_gate=policy.severity_gate.as_dict())
+    if diff_context:
+        original_finding_count = len(findings)
+        findings = filter_findings_for_diff(findings, diff_context)
+        suppressed = filter_findings_for_diff(suppressed, diff_context)
+        passed, counts = gate(findings, policy.severity_gate.as_dict())
+
+    render_cli(
+        findings,
+        counts,
+        passed,
+        console=console,
+        severity_gate=policy.severity_gate.as_dict(),
+        diff_context=diff_context,
+        original_finding_count=original_finding_count,
+    )
     if suppressed:
         console.print(f"[dim]({len(suppressed)} finding(s) suppressed by waivers)[/dim]")
 
     if json_out:
-        write_json(findings, json_out, passed=passed, counts=counts)
+        metadata = None
+        if diff_context:
+            metadata = {
+                "diff": diff_context.to_dict(
+                    original_findings=original_finding_count,
+                    filtered_findings=len(findings),
+                )
+            }
+        write_json(findings, json_out, passed=passed, counts=counts, metadata=metadata)
         console.print(f"[dim]Wrote JSON report to {json_out}[/dim]")
     if sarif_out:
         write_sarif(findings, sarif_out)

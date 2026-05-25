@@ -11,16 +11,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: pip install -e .
-      - run: ceres scan . --sarif-out ceres.sarif
+      - run: ceres scan . --diff-base origin/${{ github.base_ref || 'main' }} --sarif-out ceres.sarif
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: ceres.sarif
 ```
+
+`--diff-base` is recommended for pull requests because it keeps existing
+repository debt out of the review and gates only findings introduced by the
+branch. For scheduled or release scans, run `ceres scan .` without diff mode to
+review the whole repository.
 
 ## GitHub Pages Docs
 
