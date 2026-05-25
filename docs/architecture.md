@@ -9,12 +9,14 @@ flowchart TD
   Inventory --> Code[Code and config analyzers]
   Inventory --> Model[Model artifact analyzer]
   Inventory --> Data[Dataset analyzer]
+  Inventory --> Eval[Eval and safety config analyzer]
   Inventory --> RAG[RAG corpus analyzer]
   Inventory --> Deps[Supply-chain analyzers]
   Inventory --> BOM[AI-BOM coverage]
   Code --> Findings[Finding normalizer]
   Model --> Findings
   Data --> Findings
+  Eval --> Findings
   RAG --> Findings
   Deps --> Findings
   BOM --> Findings
@@ -35,6 +37,7 @@ Analyzers are intentionally narrow:
 - YAML/JSON config analysis for model source and tool policy
 - static model artifact parsing
 - dataset manifest/fingerprint checks
+- eval and safety config checks
 - RAG document text checks
 - dependency and CI/Docker checks
 - optional external adapters
@@ -49,7 +52,8 @@ inventory changes without needing runtime execution.
 
 Findings are emitted through:
 
-- human CLI table
+- human CLI report with risk areas, priority findings, explanations, evidence,
+  and next steps
 - JSON
 - SARIF for GitHub code scanning
 

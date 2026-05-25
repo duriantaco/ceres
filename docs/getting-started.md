@@ -62,6 +62,28 @@ ceres scan . --json-out ceres-report.json --sarif-out ceres.sarif
 
 By default, `critical` and `high` findings fail the scan. `medium` findings warn.
 
+## Read Scan Output
+
+The CLI is meant to answer three questions after a scan:
+
+- did this repo pass the configured severity gate?
+- what AI system area is risky: model, data, eval, RAG, prompt, agent, deps,
+  AI-BOM, or policy?
+- what should I fix or verify next?
+
+When findings exist, the report includes:
+
+| Section | Meaning |
+|---|---|
+| `Ceres AI Security Scan` | Overall pass/fail, total findings, gated findings, and severity mix. |
+| `Risk Areas` | Findings grouped by AI system layer so reviewers can see whether the risk is model supply chain, RAG, agent tooling, data, eval, or another area. |
+| `What Ceres Caught First` | The highest-priority findings with the rule, problem, why it matters, next step, and evidence. |
+| `Additional Findings` | Remaining findings with the problem and recommended fix. |
+| `What To Do Next` | The practical workflow: fix or waive gated findings, update provenance/baselines when changes are intentional, then rerun the scan. |
+
+Use `--json-out` and `--sarif-out` when CI or another tool needs the same
+findings in machine-readable form.
+
 ## Generate AI-BOM
 
 ```bash

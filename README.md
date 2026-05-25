@@ -54,7 +54,7 @@ enables an external scanner but it is missing, Ceres emits a low-severity
 
 ```bash
 ceres init                       # writes ceres.yml policy
-ceres scan .                     # human-readable scan
+ceres scan .                     # human-readable scan with explanations
 ceres scan . --sarif-out out.sarif --json-out out.json
 ceres baseline .                 # snapshot dataset+model+tool metadata -> .ceres/baseline.json
 ceres bom . --out ai-bom.json    # Ceres AI-BOM
@@ -63,6 +63,10 @@ ceres list-rules                 # show known rule IDs
 
 `scan` exits non-zero when findings at gated severities are present (defaults:
 `critical` and `high` fail; `medium` warns).
+
+The CLI report groups findings by AI system layer, highlights the first issues
+to review, explains why each issue matters, shows evidence when available, and
+ends with the next remediation steps.
 
 ## Example Use Case
 

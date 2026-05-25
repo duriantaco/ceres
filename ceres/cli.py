@@ -103,7 +103,7 @@ def scan(
     bom = _under_root(root, bom)
 
     findings, suppressed, counts, passed, _inv = run_scan(root, policy, baseline, bom)
-    render_cli(findings, counts, passed, console=console)
+    render_cli(findings, counts, passed, console=console, severity_gate=policy.severity_gate.as_dict())
     if suppressed:
         console.print(f"[dim]({len(suppressed)} finding(s) suppressed by waivers)[/dim]")
 

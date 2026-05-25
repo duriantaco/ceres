@@ -22,9 +22,9 @@ description: Static security scanning for AI models, datasets, RAG corpora, prom
     </div>
   </div>
   <div class="ceres-panel">
-    <div class="ceres-stat">59 rules</div>
-    <p>Static checks across code, models, datasets, RAG, prompts, supply chain,
-    policy, and AI-BOM coverage.</p>
+    <div class="ceres-stat">79 rules</div>
+    <p>Static checks across code, models, datasets, evals, RAG, prompts, agent
+    tools, supply chain, policy, and AI-BOM coverage.</p>
     <pre><code>ceres scan .
 ceres baseline .
 ceres bom . --out ai-bom.json</code></pre>
@@ -45,13 +45,15 @@ not understand:
   </div>
   <div class="ceres-signal">
     <strong>RAG And Prompt Risk</strong>
-    Instruction-like corpus content, hidden markup, encoded payloads, invisible
-    control characters, and unsafe system prompt templating.
+    Unsafe user-document indexing, missing retrieval filters, instruction-like
+    corpus content, hidden markup, encoded payloads, invisible control
+    characters, and unsafe system prompt templating.
   </div>
   <div class="ceres-signal">
     <strong>AI Supply Chain</strong>
     Dataset manifest drift, unapproved sources, dependency pinning gaps, AI-BOM
-    coverage, and optional external scanner normalization.
+    coverage, eval/safety gate drift, and optional external scanner
+    normalization.
   </div>
 </div>
 
