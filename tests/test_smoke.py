@@ -134,6 +134,10 @@ def test_cli_uses_repo_relative_policy_and_outputs(tmp_path):
 
     scan = CLI.invoke(app, ["scan", str(repo)])
     assert scan.exit_code == 0
+    assert "What Ceres Caught First" in scan.output
+    assert "Why it matters:" in scan.output
+    assert "Next step:" in scan.output
+    assert "No finding reached a fail gate." in scan.output
 
     baseline = CLI.invoke(app, ["baseline", str(repo)])
     assert baseline.exit_code == 0
