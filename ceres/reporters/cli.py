@@ -9,6 +9,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from ceres.findings.model import Finding, Layer, Severity
+from ceres.gitdiff import DiffContext
 
 _SEV_STYLE = {
     Severity.CRITICAL: "bold red",
@@ -27,15 +28,19 @@ def render(
     passed: bool,
     console: Console | None = None,
     severity_gate: Mapping[str, str] | None = None,
+    diff_context: DiffContext | None = None,
+    original_finding_count: int | None = None,
 ) -> None:
     console = console or Console()
     if not findings:
+        diff_text = f"\n\n{_diff_text(diff_context, original_finding_count, 0)}" if diff_context else ""
         console.print(
             Panel(
                 "[bold green]No findings.[/bold green]\n"
                 "Ceres did not find AI security issues covered by the enabled policy.\n\n"
                 "[bold]Next:[/bold] keep baselines and AI-BOMs current with "
-                "`ceres baseline .` and `ceres bom . --out ai-bom.json`.",
+                "`ceres baseline .` and `ceres bom . --out ai-bom.json`."
+                f"{diff_text}",
                 title="Ceres AI Security Scan",
                 border_style="green",
             )
@@ -43,7 +48,7 @@ def render(
     else:
         ordered = sorted(findings, key=lambda f: (-f.severity.rank, f.rule_id, f.file))
         failing = _failing_findings(ordered, severity_gate)
-        console.print(_summary_panel(findings, failing, counts, passed))
+        console.print(_summary_panel(findings, failing, counts, passed, diff_context, original_finding_count))
         console.print(_layer_table(findings))
         console.print(_priority_table(ordered[:_PRIORITY_LIMIT], len(ordered)))
         if len(ordered) > _PRIORITY_LIMIT:
@@ -63,6 +68,8 @@ def _summary_panel(
     failing: list[Finding],
     counts: dict[str, int],
     passed: bool,
+    diff_context: DiffContext | None = None,
+    original_finding_count: int | None = None,
 ) -> Panel:
     status = "[bold green]PASSED[/bold green]" if passed else "[bold red]FAILED[/bold red]"
     total = len(findings)
@@ -77,6 +84,8 @@ def _summary_panel(
         f"Ceres found [bold]{total}[/bold] finding(s). {escape(fail_line)}\n"
         f"Severity mix: {escape(', '.join(severity_bits) if severity_bits else 'none')}"
     )
+    if diff_context:
+        text += f"\n{_diff_text(diff_context, original_finding_count, total)}"
     return Panel(text, title="Ceres AI Security Scan", border_style="green" if passed else "red")
 
 
@@ -162,6 +171,24 @@ def _next_steps(passed: bool, failing: list[Finding]) -> Panel:
 def _failing_findings(findings: list[Finding], severity_gate: Mapping[str, str] | None) -> list[Finding]:
     gate = severity_gate or {"critical": "fail", "high": "fail"}
     return [f for f in findings if gate.get(f.severity.value) == "fail"]
+
+
+def _diff_text(
+    diff_context: DiffContext,
+    original_finding_count: int | None,
+    filtered_finding_count: int,
+) -> str:
+    filtered = (
+        f"; showing {filtered_finding_count} of {original_finding_count} finding(s)"
+        if original_finding_count is not None
+        else ""
+    )
+    return (
+        "[bold]Diff mode:[/bold] "
+        f"base {escape(diff_context.base_ref)} "
+        f"({escape(diff_context.compare_ref[:12])}); "
+        f"{diff_context.changed_file_count} changed file(s){filtered}."
+    )
 
 
 def _location(finding: Finding) -> str:

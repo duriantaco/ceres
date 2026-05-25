@@ -58,9 +58,14 @@ state against this known-good snapshot.
 ```bash
 ceres scan .
 ceres scan . --json-out ceres-report.json --sarif-out ceres.sarif
+ceres scan . --diff-base origin/main
 ```
 
 By default, `critical` and `high` findings fail the scan. `medium` findings warn.
+
+Use `--diff-base` in pull-request workflows to show only findings on files or
+lines changed since a git base ref. Ceres still scans with full repository
+context, then filters out pre-existing findings outside the diff.
 
 ## Read Scan Output
 
@@ -80,6 +85,9 @@ When findings exist, the report includes:
 | `What Ceres Caught First` | The highest-priority findings with the rule, problem, why it matters, next step, and evidence. |
 | `Additional Findings` | Remaining findings with the problem and recommended fix. |
 | `What To Do Next` | The practical workflow: fix or waive gated findings, update provenance/baselines when changes are intentional, then rerun the scan. |
+
+In diff mode, the summary also shows the base ref, compare commit, changed-file
+count, and how many full-scan findings were retained after diff filtering.
 
 Use `--json-out` and `--sarif-out` when CI or another tool needs the same
 findings in machine-readable form.

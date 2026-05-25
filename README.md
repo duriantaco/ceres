@@ -56,6 +56,7 @@ enables an external scanner but it is missing, Ceres emits a low-severity
 ceres init                       # writes ceres.yml policy
 ceres scan .                     # human-readable scan with explanations
 ceres scan . --sarif-out out.sarif --json-out out.json
+ceres scan . --diff-base origin/main
 ceres baseline .                 # snapshot dataset+model+tool metadata -> .ceres/baseline.json
 ceres bom . --out ai-bom.json    # Ceres AI-BOM
 ceres list-rules                 # show known rule IDs
@@ -67,6 +68,9 @@ ceres list-rules                 # show known rule IDs
 The CLI report groups findings by AI system layer, highlights the first issues
 to review, explains why each issue matters, shows evidence when available, and
 ends with the next remediation steps.
+
+Use `--diff-base` in PR checks to scan with full repository context but report
+only findings on files or lines changed since the base ref.
 
 ## Example Use Case
 

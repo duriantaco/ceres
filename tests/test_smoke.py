@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import subprocess
 from pathlib import Path
 
 from ceres.config import Policy
@@ -146,6 +148,47 @@ def test_cli_uses_repo_relative_policy_and_outputs(tmp_path):
     bom = CLI.invoke(app, ["bom", str(repo)])
     assert bom.exit_code == 0
     assert (repo / "ai-bom.json").exists()
+
+
+def test_cli_diff_base_reports_only_changed_findings(tmp_path):
+    repo = tmp_path / "repo"
+    src = repo / "src"
+    src.mkdir(parents=True)
+    (src / "old_loader.py").write_text(
+        "from transformers import AutoModel\n"
+        "AutoModel.from_pretrained('org/old', trust_remote_code=True)\n"
+    )
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Test User")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "base")
+
+    (repo / "README.md").write_text("documentation-only change\n")
+    clean_scan = CLI.invoke(app, ["scan", str(repo), "--diff-base", "HEAD"])
+    assert clean_scan.exit_code == 0
+    assert "Diff mode:" in clean_scan.output
+    assert "remote_code_enabled" not in clean_scan.output
+
+    (src / "new_loader.py").write_text(
+        "from transformers import AutoModel\n"
+        "AutoModel.from_pretrained('org/new', trust_remote_code=True)\n"
+    )
+    report = repo / "report.json"
+    changed_scan = CLI.invoke(
+        app,
+        ["scan", str(repo), "--diff-base", "HEAD", "--json-out", str(report)],
+    )
+    assert changed_scan.exit_code == 1
+    assert "ceres.model.loader.remote_code_enabled" in changed_scan.output
+    payload = json.loads(report.read_text())
+    assert payload["metadata"]["diff"]["base_ref"] == "HEAD"
+    assert payload["metadata"]["diff"]["original_findings"] > payload["metadata"]["diff"]["filtered_findings"]
+    assert {f["file"] for f in payload["findings"]} == {"src/new_loader.py"}
+
+
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", "-C", str(repo), *args], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 def test_static_dependency_policy_checks(tmp_path):
