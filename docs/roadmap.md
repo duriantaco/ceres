@@ -26,7 +26,7 @@ scanning and repo-history secret detection should stay in Skylos.
 2. Cross-layer outlier scoring when no clean baseline exists.
 3. Broader MCP server command, scope, and permission checks.
 4. JavaScript/TypeScript AI SDK rules.
-5. Optional dynamic probe integration for runtime evals.
+5. More copyable CI policy templates for common AI repository layouts.
 
 ## Non-Goals
 

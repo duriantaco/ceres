@@ -1,0 +1,49 @@
+name: Ceres AI Security Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  static-ai-supply-chain:
+    name: Ceres Static AI Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Ceres
+        run: python -m pip install ceres-scanner pip-audit
+
+      - name: Scan AI workflow changes
+        run: |
+          ceres scan . \
+            --diff-base origin/${{ github.base_ref || 'main' }} \
+            --json-out ceres.json \
+            --sarif-out ceres.sarif \
+            --fail-on critical,high,medium
+
+      - name: Upload Ceres SARIF
+        if: ${{ always() && hashFiles('ceres.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ceres.sarif
+
+      - name: Upload Ceres JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ceres-report
+          path: ceres.json
+          if-no-files-found: ignore
