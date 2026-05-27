@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import pickle
 import pickletools
 import zipfile
-import pickle
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -62,7 +62,7 @@ def scan_pickle_bytes(data: bytes) -> PickleScanResult:
     count = 0
     truncated = False
     try:
-        for op, arg, _pos in pickletools.genops(data[:_MAX_BYTES]):
+        for op, arg, _ in pickletools.genops(data[:_MAX_BYTES]):
             count += 1
             if count > _MAX_OPS:
                 truncated = True
@@ -76,17 +76,17 @@ def scan_pickle_bytes(data: bytes) -> PickleScanResult:
                     continue
                 ref = arg if isinstance(arg, str) else " ".join(arg) if arg else ""
                 ref_norm = ref.replace(" ", ".")
-                if _matches_any(ref_norm, _SUSPICIOUS_GLOBALS):
+                if _matches_any(ref_norm):
                     suspicious.append(ref_norm)
             if name in {"INST", "OBJ"}:
-                if isinstance(arg, str) and _matches_any(arg.replace(" ", "."), _SUSPICIOUS_GLOBALS):
+                if isinstance(arg, str) and _matches_any(arg.replace(" ", ".")):
                     suspicious.append(arg)
     except Exception as e:  # noqa: BLE001
         return PickleScanResult(suspicious, has_reduce, count, truncated, error=str(e))
     return PickleScanResult(suspicious, has_reduce, count, truncated)
 
 
-def _matches_any(ref: str, fragments: set[str]) -> bool:
+def _matches_any(ref: str) -> bool:
     if ref in _SUSPICIOUS_EXACT:
         return True
     return any(ref.startswith(prefix) for prefix in _SUSPICIOUS_PREFIXES)
