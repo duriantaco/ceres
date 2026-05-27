@@ -134,28 +134,21 @@ def _scan_python_file(path: Path, ctx: AnalyzerContext) -> list[Finding]:
     rel = ctx.rel(path)
     findings: list[Finding] = []
 
-    class Visitor(ast.NodeVisitor):
-        def visit_Assign(self, node: ast.Assign) -> None:
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
             for target in node.targets:
                 key = _target_name(target)
                 if key:
                     _check_key_value(key, _literal(node.value), rel, [key], node.lineno, findings, ctx)
-            self.generic_visit(node)
-
-        def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        elif isinstance(node, ast.AnnAssign):
             key = _target_name(node.target)
             if key:
                 _check_key_value(key, _literal(node.value), rel, [key], node.lineno, findings, ctx)
-            self.generic_visit(node)
-
-        def visit_Dict(self, node: ast.Dict) -> None:
+        elif isinstance(node, ast.Dict):
             for key_node, value_node in zip(node.keys, node.values):
                 key = _literal(key_node)
                 if isinstance(key, str):
                     _check_key_value(key, _literal(value_node), rel, [key], getattr(node, "lineno", None), findings, ctx)
-            self.generic_visit(node)
-
-    Visitor().visit(tree)
     return findings
 
 
