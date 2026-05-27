@@ -20,7 +20,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from ceres.baseline.store import build_baseline, save_baseline
-from ceres.config import Policy
+from ceres.config import Policy, PolicyError
 from ceres.findings.model import Finding
 from ceres.inventory.walker import build_inventory
 from ceres.runner import run_scan
@@ -204,7 +204,10 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _policy(policy_path: Path | None, external_scanners: bool) -> Policy:
-    policy = Policy.load(policy_path)
+    try:
+        policy = Policy.load(policy_path)
+    except PolicyError as e:
+        raise SystemExit(str(e)) from e
     if not external_scanners:
         policy.dependency_policy.run_pip_audit = False
         policy.dependency_policy.run_gitleaks = False

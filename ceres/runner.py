@@ -18,7 +18,7 @@ from ceres.baseline.store import load_baseline
 from ceres.config import Policy
 from ceres.findings.model import Finding, Layer, Severity
 from ceres.findings.severity import gate
-from ceres.findings.waivers import apply_waivers, parse_waivers
+from ceres.findings.waivers import WaiverError, apply_waivers, parse_waivers
 from ceres.inventory.classifier import RAG_DOC_EXTS
 from ceres.inventory.walker import Inventory, build_inventory
 
@@ -77,7 +77,20 @@ def run_scan(
             )
         )
 
-    waivers = parse_waivers(policy.waivers)
+    try:
+        waivers = parse_waivers(policy.waivers)
+    except WaiverError as e:
+        findings.append(
+            Finding(
+                rule_id="ceres.policy.waiver_invalid",
+                severity=Severity.HIGH,
+                layer=Layer.POLICY,
+                file="<policy>",
+                message=f"Invalid waiver configuration: {e}",
+                recommendation="Fix the waiver entry in ceres.yml before trusting this scan.",
+            )
+        )
+        waivers = []
     kept, suppressed, expired = apply_waivers(findings, waivers)
     for w in expired:
         kept.append(

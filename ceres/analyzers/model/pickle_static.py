@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pickletools
 import zipfile
+import pickle
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -38,6 +39,8 @@ _SUSPICIOUS_GLOBALS = {
     "subprocess.run",
     "subprocess.check_output",
 }
+_SUSPICIOUS_PREFIXES = {item for item in _SUSPICIOUS_GLOBALS if item.endswith(".")}
+_SUSPICIOUS_EXACT = _SUSPICIOUS_GLOBALS - _SUSPICIOUS_PREFIXES
 
 
 @dataclass
@@ -50,7 +53,7 @@ class PickleScanResult:
 
     @property
     def is_dangerous(self) -> bool:
-        return bool(self.suspicious_globals) or self.error is not None
+        return bool(self.suspicious_globals)
 
 
 def scan_pickle_bytes(data: bytes) -> PickleScanResult:
@@ -84,7 +87,9 @@ def scan_pickle_bytes(data: bytes) -> PickleScanResult:
 
 
 def _matches_any(ref: str, fragments: set[str]) -> bool:
-    return any(frag in ref for frag in fragments)
+    if ref in _SUSPICIOUS_EXACT:
+        return True
+    return any(ref.startswith(prefix) for prefix in _SUSPICIOUS_PREFIXES)
 
 
 def scan_path(path: Path) -> PickleScanResult | None:
@@ -102,7 +107,16 @@ def scan_path(path: Path) -> PickleScanResult | None:
                                 return scan_pickle_bytes(inner.read(_MAX_BYTES))
                 return None
             with path.open("rb") as f:
-                return scan_pickle_bytes(f.read(_MAX_BYTES))
+                data = f.read(_MAX_BYTES)
+            if not _looks_like_pickle(data):
+                return None
+            return scan_pickle_bytes(data)
     except (OSError, zipfile.BadZipFile) as e:
         return PickleScanResult([], False, 0, False, error=str(e))
     return None
+
+
+def _looks_like_pickle(data: bytes) -> bool:
+    if len(data) >= 2 and data[0] == 0x80 and data[1] <= pickle.HIGHEST_PROTOCOL:
+        return True
+    return data[:1] in {b"c", b"(", b"]", b"}", b"l", b"d", b"I", b"F", b"S", b"V"}

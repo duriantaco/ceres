@@ -4,13 +4,21 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 GateAction = Literal["fail", "warn", "info", "ignore"]
 
 
-class SeverityGate(BaseModel):
+class StrictBaseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class PolicyError(ValueError):
+    pass
+
+
+class SeverityGate(StrictBaseModel):
     critical: GateAction = "fail"
     high: GateAction = "fail"
     medium: GateAction = "warn"
@@ -27,13 +35,13 @@ class SeverityGate(BaseModel):
         }
 
 
-class FrameworkMapping(BaseModel):
+class FrameworkMapping(StrictBaseModel):
     include: list[str] = Field(
         default_factory=lambda: ["owasp_llm_2025", "owasp_ml_top10", "mitre_atlas", "nist_aml"]
     )
 
 
-class ModelPolicy(BaseModel):
+class ModelPolicy(StrictBaseModel):
     allowed_formats: list[str] = Field(default_factory=lambda: ["safetensors", "onnx", "gguf"])
     blocked_formats: list[str] = Field(default_factory=lambda: ["pkl", "pickle"])
     require_sha256: bool = True
@@ -50,6 +58,10 @@ class ModelPolicy(BaseModel):
     tensor_norm_drift_ratio: float = 0.50
     tensor_sparsity_drift_ratio: float = 0.20
     max_tensor_abs_value: float = 1_000_000.0
+    max_gguf_metadata_bytes: int = 64 * 1024 * 1024
+    max_gguf_string_bytes: int = 1024 * 1024
+    max_onnx_string_bytes: int = 1024 * 1024
+    max_onnx_nodes: int = 200_000
     suspicious_tensor_name_patterns: list[str] = Field(
         default_factory=lambda: [
             "backdoor",
@@ -62,7 +74,7 @@ class ModelPolicy(BaseModel):
     )
 
 
-class DataPolicy(BaseModel):
+class DataPolicy(StrictBaseModel):
     require_manifest: bool = True
     require_hashes: bool = True
     require_owner: bool = True
@@ -74,7 +86,7 @@ class DataPolicy(BaseModel):
     scan_for_secrets: bool = False
 
 
-class RagPolicy(BaseModel):
+class RagPolicy(StrictBaseModel):
     require_source_metadata: bool = False
     require_doc_owner: bool = False
     block_instruction_like_content: bool = True
@@ -85,7 +97,7 @@ class RagPolicy(BaseModel):
     include_paths: list[str] = Field(default_factory=list)
 
 
-class EvalPolicy(BaseModel):
+class EvalPolicy(StrictBaseModel):
     require_safety_eval: bool = True
     require_regression_eval: bool = True
     block_disabled_safety_filters: bool = True
@@ -93,7 +105,7 @@ class EvalPolicy(BaseModel):
     max_generation_temperature: float = 1.0
 
 
-class CodePolicy(BaseModel):
+class CodePolicy(StrictBaseModel):
     block_pickle_load: bool = True
     block_unsafe_torch_load: bool = True
     block_eval_exec: bool = True
@@ -103,7 +115,7 @@ class CodePolicy(BaseModel):
     scan_inline_secrets: bool = False
 
 
-class DependencyPolicy(BaseModel):
+class DependencyPolicy(StrictBaseModel):
     run_pip_audit: bool = True
     run_osv_scanner: bool = False
     run_gitleaks: bool = False
@@ -112,15 +124,15 @@ class DependencyPolicy(BaseModel):
     block_critical_cves: bool = True
 
 
-class OutputPolicy(BaseModel):
-    model_config = {"protected_namespaces": ()}
+class OutputPolicy(StrictBaseModel):
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
 
     sarif: bool = False
     json_: bool = Field(False, alias="json")
     markdown_summary: bool = False
 
 
-class CleanBudgets(BaseModel):
+class CleanBudgets(StrictBaseModel):
     total: int | None = None
     critical: int | None = None
     high: int | None = None
@@ -129,11 +141,11 @@ class CleanBudgets(BaseModel):
     analyzer_failures: int = 0
 
 
-class RealWorldValidationPolicy(BaseModel):
+class RealWorldValidationPolicy(StrictBaseModel):
     clean_budgets: CleanBudgets = Field(default_factory=CleanBudgets)
 
 
-class Policy(BaseModel):
+class Policy(StrictBaseModel):
     version: int = 1
     mode: Literal["dev", "ci"] = "ci"
     severity_gate: SeverityGate = Field(default_factory=SeverityGate)
@@ -150,11 +162,19 @@ class Policy(BaseModel):
 
     @classmethod
     def load(cls, path: Path | None) -> "Policy":
-        if path is None or not path.exists():
+        if path is None:
             return cls()
-        with path.open() as f:
-            raw = yaml.safe_load(f) or {}
-        return cls.model_validate(raw)
+        if not path.exists():
+            raise PolicyError(f"{path}: policy file not found")
+        try:
+            with path.open() as f:
+                raw = yaml.safe_load(f) or {}
+        except yaml.YAMLError as e:
+            raise PolicyError(f"{path}: invalid YAML: {e}") from e
+        try:
+            return cls.model_validate(raw)
+        except Exception as e:  # noqa: BLE001
+            raise PolicyError(f"{path}: invalid policy: {e}") from e
 
 
 DEFAULT_POLICY_YAML = """\
@@ -191,6 +211,10 @@ model_policy:
   tensor_norm_drift_ratio: 0.50
   tensor_sparsity_drift_ratio: 0.20
   max_tensor_abs_value: 1000000.0
+  max_gguf_metadata_bytes: 67108864
+  max_gguf_string_bytes: 1048576
+  max_onnx_string_bytes: 1048576
+  max_onnx_nodes: 200000
   suspicious_tensor_name_patterns:
     - backdoor
     - trigger

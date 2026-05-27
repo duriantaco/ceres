@@ -10,6 +10,8 @@ scanning and repo-history secret detection should stay in Skylos.
 - static pickle opcode inspection
 - safetensors header validation
 - safetensors tensor baseline, hashes, and numeric stats
+- GGUF metadata/header parsing and baseline drift checks
+- ONNX protobuf metadata, opset, and operator-summary drift checks
 - tokenizer, chat-template, and LoRA base-model drift
 - dataset manifest, hash, source, duplicate, label drift, and rare phrase checks
 - RAG prompt-injection and covert-content checks
@@ -22,11 +24,11 @@ scanning and repo-history secret detection should stay in Skylos.
 
 ## Next Highest-Value Work
 
-1. ONNX and GGUF metadata scanners.
-2. Cross-layer outlier scoring when no clean baseline exists.
-3. Broader MCP server command, scope, and permission checks.
-4. JavaScript/TypeScript AI SDK rules.
-5. More copyable CI policy templates for common AI repository layouts.
+1. Cross-layer outlier scoring when no clean baseline exists.
+2. Broader MCP server command, scope, and permission checks.
+3. JavaScript/TypeScript AI SDK rules.
+4. More copyable CI policy templates for common AI repository layouts.
+5. Deeper ONNX graph-shape and GGUF tokenizer policy checks.
 
 ## Non-Goals
 

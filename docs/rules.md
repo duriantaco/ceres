@@ -39,7 +39,8 @@ ceres list-rules
 | `ceres.model.artifact.format_not_allowed` | Disallowed model format | High | Model artifact format is outside `model_policy.allowed_formats`, excluding pickle formats handled by the pickle rule. |
 | `ceres.model.artifact.hash_drift` | Model artifact hash drift | High | Model artifact SHA-256 differs from `.ceres/baseline.json`. |
 | `ceres.model.artifact.pickle_format` | Pickle model artifact | Critical | Pickle-backed model artifact such as `.pkl`, `.pickle`, or `.joblib` is present and blocked by policy. |
-| `ceres.model.artifact.pickle_opcode_risk` | Suspicious pickle opcode risk | Critical | Static pickle scan finds suspicious imports/opcodes, reducers, or parse errors that make deserialization unsafe. |
+| `ceres.model.artifact.pickle_opcode_risk` | Suspicious pickle opcode risk | Critical | Static pickle scan finds suspicious imports/opcodes or reducers that make deserialization unsafe. |
+| `ceres.model.artifact.pickle_parse_error` | Pickle parse error | High | A pickle-backed artifact could not be fully parsed statically, but no dangerous opcode/global was confirmed. |
 | `ceres.model.artifact.prefer_safetensors` | Prefer safetensors | Medium | PyTorch checkpoint-like file (`.pt`, `.pth`, `.bin`, `.ckpt`) is present; safetensors is preferred where possible. |
 | `ceres.model.artifact.source_missing_or_unapproved` | Missing or unapproved model source | High | Model artifact lacks adjacent provenance metadata, or model source/config source is outside `approved_model_sources`. |
 | `ceres.model.config.revision_unpinned` | Unpinned configured model reference | High | YAML/JSON config references a Hugging Face-style model without a pinned revision. |
@@ -63,6 +64,24 @@ limitations.
 | `ceres.model.tensor.sparsity_drift` | Tensor sparsity drift | Medium | Tensor zero ratio differs from baseline beyond `tensor_sparsity_drift_ratio`. |
 | `ceres.model.tensor.range_anomaly` | Tensor range anomaly | Medium | Tensor min/max absolute value exceeds `max_tensor_abs_value`. |
 | `ceres.model.tensor.suspicious_name` | Suspicious tensor name | Low | Tensor/layer name contains configured marker text such as `backdoor`, `trigger`, `override`, `jailbreak`, `malicious`, or `admin`. |
+
+## GGUF And ONNX Metadata Rules
+
+These rules parse model container metadata directly from bytes. They do not
+execute model code, import ONNX, or load tensor payloads.
+
+| Rule ID | Name | Severity | What it catches |
+|---|---|---:|---|
+| `ceres.model.gguf.header_invalid` | Invalid GGUF header | High | GGUF file is truncated, has invalid magic/version, malformed metadata, invalid tensor metadata, or unsupported metadata value types. |
+| `ceres.model.gguf.metadata_oversized` | Oversized GGUF metadata | High | GGUF metadata strings, arrays, entry counts, tensor counts, or total metadata bytes exceed scanner limits. |
+| `ceres.model.gguf.architecture_drift` | GGUF architecture drift | High | GGUF `general.architecture` changed compared with baseline. |
+| `ceres.model.gguf.metadata_drift` | GGUF metadata drift | Medium | GGUF metadata digest changed compared with baseline. |
+| `ceres.model.gguf.tensor_count_drift` | GGUF tensor count drift | Medium | GGUF tensor count changed compared with baseline. |
+| `ceres.model.onnx.header_invalid` | Invalid ONNX protobuf | High | ONNX protobuf is empty, truncated, malformed, or lacks recognizable model metadata. |
+| `ceres.model.onnx.metadata_oversized` | Oversized ONNX metadata | High | ONNX strings, metadata properties, graph nodes, or operator type counts exceed scanner limits. |
+| `ceres.model.onnx.metadata_drift` | ONNX metadata drift | Medium | ONNX model identity/producer/graph/metadata summary changed compared with baseline. |
+| `ceres.model.onnx.opset_drift` | ONNX opset drift | High | ONNX opset imports changed compared with baseline. |
+| `ceres.model.onnx.operator_drift` | ONNX operator drift | Medium | ONNX node/operator summary changed compared with baseline. |
 
 ## Tokenizer, Chat Template, And Adapter Rules
 
@@ -135,6 +154,7 @@ limitations.
 |---|---|---:|---|
 | `ceres.aibom.coverage_missing` | AI-BOM coverage missing | Low | Models/datasets exist without `ai-bom.json`, `ai-bom.json` is unreadable, or AI-BOM is missing model/dataset components. |
 | `ceres.policy.waiver_expired` | Waiver expired | Medium | A configured waiver has expired and no longer suppresses matching findings. |
+| `ceres.policy.waiver_invalid` | Waiver invalid | High | A configured waiver is malformed and could not be applied safely. |
 | `ceres.engine.analyzer_failed` | Analyzer failed | High | A Ceres analyzer raised an exception; the scan is incomplete and should not be treated as clean. |
 
 ## Optional Rules Off By Default

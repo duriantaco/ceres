@@ -222,7 +222,7 @@ def _check_key_value(
         normalized in _TEMPERATURE_KEYS
         and isinstance(value, (int, float))
         and value > epol.max_generation_temperature
-        and _looks_eval_or_model_context(path)
+        and _looks_eval_or_model_context(path, rel)
     ):
         out.append(
             Finding(
@@ -292,8 +292,9 @@ def _normalize(key: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", key.lower())
 
 
-def _looks_eval_or_model_context(path: list[str]) -> bool:
-    return any(_EVAL_CONTEXT_RE.search(p) for p in path) or len(path) <= 1
+def _looks_eval_or_model_context(path: list[str], rel: str) -> bool:
+    context = [rel, *path[:-1]]
+    return any(_EVAL_CONTEXT_RE.search(p) for p in context)
 
 
 def _line_for_key(raw: str, key: str) -> int | None:

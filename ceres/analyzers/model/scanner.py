@@ -9,6 +9,8 @@ from typing import Any
 import yaml
 
 from ceres.analyzers.base import AnalyzerContext
+from ceres.analyzers.model.gguf_static import GGUFInfo, inspect_gguf
+from ceres.analyzers.model.onnx_static import ONNXInfo, inspect_onnx
 from ceres.analyzers.model.pickle_static import scan_path
 from ceres.analyzers.model.safetensors_static import SafetensorsInfo, inspect_safetensors
 from ceres.findings.model import Evidence, Finding, FrameworkMap, Layer, Severity
@@ -58,6 +60,10 @@ def run(ctx: AnalyzerContext) -> list[Finding]:
 
         if fmt == "safetensors" and mpol.scan_safetensors_tensors:
             findings.extend(_scan_safetensors(path, ctx, baseline_models, rel))
+        elif fmt == "gguf":
+            findings.extend(_scan_gguf(path, ctx, baseline_models, rel))
+        elif fmt == "onnx":
+            findings.extend(_scan_onnx(path, ctx, baseline_models, rel))
 
         allowed = {f.lower().lstrip(".") for f in mpol.allowed_formats}
         format_names = {fmt, suffix.lstrip(".")}
@@ -138,6 +144,19 @@ def run(ctx: AnalyzerContext) -> list[Finding]:
                             frameworks=FrameworkMap(owasp_llm=("LLM03", "LLM05"), owasp_ml=("ML06",)),
                         )
                     )
+                elif scan.error or scan.truncated:
+                    findings.append(
+                        Finding(
+                            rule_id="ceres.model.artifact.pickle_parse_error",
+                            severity=Severity.HIGH,
+                            layer=Layer.MODEL,
+                            file=rel,
+                            message=f"Static pickle scan could not fully parse this artifact: {scan.error or 'operation limit exceeded'}.",
+                            recommendation="Treat the artifact as untrusted until it can be re-exported or verified from provenance.",
+                            evidence=Evidence(extra={"opcodes": scan.opcode_count, "truncated": scan.truncated}),
+                            frameworks=FrameworkMap(owasp_llm=("LLM03", "LLM05"), owasp_ml=("ML06",)),
+                        )
+                    )
 
         # Format preference: nudge toward safetensors
         if fmt == "pytorch":
@@ -155,9 +174,10 @@ def run(ctx: AnalyzerContext) -> list[Finding]:
 
         # Hash + source requirements
         if mpol.require_sha256:
-            sha = _sha256_file(path)
             baseline = baseline_models.get(rel) or {}
             expected = baseline.get("sha256")
+            if expected:
+                sha = _sha256_file(path)
             if expected and expected != sha:
                 findings.append(
                     Finding(
@@ -208,6 +228,183 @@ def _scan_safetensors(path: Path, ctx: AnalyzerContext, baseline_models: dict, r
     baseline_tensors = baseline.get("tensors") or {}
     if isinstance(baseline_tensors, dict) and baseline_tensors:
         out.extend(_compare_tensors(result.info, baseline_tensors, rel, mpol))
+    return out
+
+
+def _scan_gguf(path: Path, ctx: AnalyzerContext, baseline_models: dict, rel: str) -> list[Finding]:
+    mpol = ctx.policy.model_policy
+    result = inspect_gguf(
+        path,
+        max_metadata_bytes=mpol.max_gguf_metadata_bytes,
+        max_string_bytes=mpol.max_gguf_string_bytes,
+    )
+    if not result.ok or result.info is None:
+        rule = result.error_code or "ceres.model.gguf.header_invalid"
+        severity = Severity.HIGH
+        return [
+            Finding(
+                rule_id=rule,
+                severity=severity,
+                layer=Layer.MODEL,
+                file=rel,
+                message=result.error or "GGUF metadata could not be parsed.",
+                recommendation="Re-export the GGUF artifact from a trusted source and verify its metadata.",
+                frameworks=FrameworkMap(owasp_llm=("LLM03", "LLM05"), owasp_ml=("ML06",)),
+            )
+        ]
+
+    baseline = baseline_models.get(rel) or {}
+    return _compare_gguf_metadata(result.info, baseline, rel)
+
+
+def _scan_onnx(path: Path, ctx: AnalyzerContext, baseline_models: dict, rel: str) -> list[Finding]:
+    mpol = ctx.policy.model_policy
+    result = inspect_onnx(
+        path,
+        max_string_bytes=mpol.max_onnx_string_bytes,
+        max_nodes=mpol.max_onnx_nodes,
+    )
+    if not result.ok or result.info is None:
+        rule = result.error_code or "ceres.model.onnx.header_invalid"
+        return [
+            Finding(
+                rule_id=rule,
+                severity=Severity.HIGH,
+                layer=Layer.MODEL,
+                file=rel,
+                message=result.error or "ONNX metadata could not be parsed.",
+                recommendation="Re-export the ONNX artifact from a trusted source and verify the protobuf structure.",
+                frameworks=FrameworkMap(owasp_llm=("LLM03", "LLM05"), owasp_ml=("ML06",)),
+            )
+        ]
+
+    baseline = baseline_models.get(rel) or {}
+    return _compare_onnx_metadata(result.info, baseline, rel)
+
+
+def _compare_gguf_metadata(info: GGUFInfo, baseline: dict[str, Any], rel: str) -> list[Finding]:
+    if baseline.get("format") != "gguf":
+        return []
+
+    out: list[Finding] = []
+    current_arch = _str_metadata(info.metadata.get("general.architecture"))
+    baseline_arch = _str_metadata((baseline.get("metadata") or {}).get("general.architecture"))
+    if baseline_arch and current_arch and baseline_arch != current_arch:
+        out.append(
+            Finding(
+                rule_id="ceres.model.gguf.architecture_drift",
+                severity=Severity.HIGH,
+                layer=Layer.MODEL,
+                file=rel,
+                message=f"GGUF architecture changed: '{baseline_arch}' -> '{current_arch}'.",
+                recommendation="Confirm this model-family change is expected before accepting the new artifact.",
+                evidence=Evidence(extra={"baseline": baseline_arch, "current": current_arch}),
+                frameworks=FrameworkMap(owasp_ml=("ML06",)),
+            )
+        )
+
+    prev_tensor_count = baseline.get("tensor_count")
+    if isinstance(prev_tensor_count, int) and prev_tensor_count != info.tensor_count:
+        out.append(
+            Finding(
+                rule_id="ceres.model.gguf.tensor_count_drift",
+                severity=Severity.MEDIUM,
+                layer=Layer.MODEL,
+                file=rel,
+                message=f"GGUF tensor count changed: {prev_tensor_count} -> {info.tensor_count}.",
+                recommendation="Review the model architecture/provenance diff and update the baseline after approval.",
+                evidence=Evidence(extra={"baseline": prev_tensor_count, "current": info.tensor_count}),
+                frameworks=FrameworkMap(owasp_ml=("ML06",)),
+            )
+        )
+
+    prev_metadata_hash = baseline.get("metadata_sha256")
+    if isinstance(prev_metadata_hash, str) and prev_metadata_hash != info.metadata_sha256:
+        out.append(
+            Finding(
+                rule_id="ceres.model.gguf.metadata_drift",
+                severity=Severity.MEDIUM,
+                layer=Layer.MODEL,
+                file=rel,
+                message="GGUF metadata changed compared with baseline.",
+                recommendation="Review metadata changes such as tokenizer config, chat template, quantization, and model identity.",
+                evidence=Evidence(
+                    extra={
+                        "changed_keys": _changed_keys(baseline.get("metadata"), info.metadata),
+                        "baseline_sha256": prev_metadata_hash,
+                        "current_sha256": info.metadata_sha256,
+                    }
+                ),
+                frameworks=FrameworkMap(owasp_ml=("ML06",)),
+            )
+        )
+
+    return out
+
+
+def _compare_onnx_metadata(info: ONNXInfo, baseline: dict[str, Any], rel: str) -> list[Finding]:
+    if baseline.get("format") != "onnx":
+        return []
+
+    out: list[Finding] = []
+    prev_opsets = baseline.get("opset_imports")
+    if isinstance(prev_opsets, dict) and prev_opsets != info.opset_imports:
+        out.append(
+            Finding(
+                rule_id="ceres.model.onnx.opset_drift",
+                severity=Severity.HIGH,
+                layer=Layer.MODEL,
+                file=rel,
+                message="ONNX opset imports changed compared with baseline.",
+                recommendation="Confirm the opset change is expected and compatible with the intended runtime.",
+                evidence=Evidence(extra={"baseline": prev_opsets, "current": info.opset_imports}),
+                frameworks=FrameworkMap(owasp_ml=("ML06",)),
+            )
+        )
+
+    prev_operator_hash = baseline.get("operator_sha256")
+    if isinstance(prev_operator_hash, str) and prev_operator_hash != info.operator_sha256:
+        out.append(
+            Finding(
+                rule_id="ceres.model.onnx.operator_drift",
+                severity=Severity.MEDIUM,
+                layer=Layer.MODEL,
+                file=rel,
+                message="ONNX graph operator summary changed compared with baseline.",
+                recommendation="Review added, removed, or changed operators before accepting the new model.",
+                evidence=Evidence(
+                    extra={
+                        "baseline": baseline.get("node_op_counts"),
+                        "current": info.node_op_counts,
+                        "baseline_node_count": baseline.get("node_count"),
+                        "current_node_count": info.node_count,
+                    }
+                ),
+                frameworks=FrameworkMap(owasp_ml=("ML06",)),
+            )
+        )
+
+    prev_metadata_hash = baseline.get("metadata_sha256")
+    if isinstance(prev_metadata_hash, str) and prev_metadata_hash != info.metadata_sha256:
+        out.append(
+            Finding(
+                rule_id="ceres.model.onnx.metadata_drift",
+                severity=Severity.MEDIUM,
+                layer=Layer.MODEL,
+                file=rel,
+                message="ONNX model metadata changed compared with baseline.",
+                recommendation="Review model identity, producer, graph name, and metadata properties before accepting the new artifact.",
+                evidence=Evidence(
+                    extra={
+                        "changed_keys": _changed_keys(_onnx_baseline_metadata(baseline), _onnx_current_metadata(info)),
+                        "baseline_sha256": prev_metadata_hash,
+                        "current_sha256": info.metadata_sha256,
+                    }
+                ),
+                frameworks=FrameworkMap(owasp_ml=("ML06",)),
+            )
+        )
+
     return out
 
 
@@ -436,6 +633,41 @@ def _max_abs(a: float | None, b: float | None) -> float | None:
     return max(values) if values else None
 
 
+def _str_metadata(value: Any) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+def _changed_keys(previous: Any, current: Any) -> list[str]:
+    if not isinstance(previous, dict) or not isinstance(current, dict):
+        return []
+    keys = set(previous) | set(current)
+    return sorted(key for key in keys if previous.get(key) != current.get(key))[:20]
+
+
+def _onnx_current_metadata(info: ONNXInfo) -> dict[str, Any]:
+    return {
+        "ir_version": info.ir_version,
+        "producer_name": info.producer_name,
+        "producer_version": info.producer_version,
+        "domain": info.domain,
+        "model_version": info.model_version,
+        "graph_name": info.graph_name,
+        "metadata_props": info.metadata_props,
+    }
+
+
+def _onnx_baseline_metadata(baseline: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ir_version": baseline.get("ir_version"),
+        "producer_name": baseline.get("producer_name"),
+        "producer_version": baseline.get("producer_version"),
+        "domain": baseline.get("domain"),
+        "model_version": baseline.get("model_version"),
+        "graph_name": baseline.get("graph_name"),
+        "metadata_props": baseline.get("metadata_props"),
+    }
+
+
 def _tensor_finding(
     rule_id: str,
     severity: Severity,
@@ -604,4 +836,14 @@ def _extract_source(data: Any) -> str | None:
 def _source_allowed(source: str, approved: list[str]) -> bool:
     normalized = source.strip()
     hf_url = f"huggingface.co/{normalized}"
-    return any(normalized.startswith(prefix) or hf_url.startswith(prefix) for prefix in approved)
+    return any(
+        _source_prefix_match(normalized, prefix) or _source_prefix_match(hf_url, prefix)
+        for prefix in approved
+    )
+
+
+def _source_prefix_match(value: str, prefix: str) -> bool:
+    normalized_prefix = prefix.strip().rstrip("/")
+    if not normalized_prefix:
+        return False
+    return value == normalized_prefix or value.startswith(f"{normalized_prefix}/")

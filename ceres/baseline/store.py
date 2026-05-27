@@ -8,6 +8,8 @@ from typing import Any
 
 from ceres.analyzers.agent.tool_poisoning import descriptor_baseline, extract_tool_descriptors
 from ceres.analyzers.data.fingerprint import fingerprint
+from ceres.analyzers.model.gguf_static import gguf_baseline_for
+from ceres.analyzers.model.onnx_static import onnx_baseline_for
 from ceres.analyzers.model.safetensors_static import tensor_baseline_for
 from ceres.inventory.walker import Inventory
 
@@ -21,6 +23,14 @@ def build_baseline(inv: Inventory) -> dict[str, Any]:
             tensor_baseline = tensor_baseline_for(path)
             if tensor_baseline is not None:
                 entry.update(tensor_baseline)
+        if path.suffix.lower() == ".gguf":
+            gguf_baseline = gguf_baseline_for(path)
+            if gguf_baseline is not None:
+                entry.update(gguf_baseline)
+        if path.suffix.lower() == ".onnx":
+            onnx_baseline = onnx_baseline_for(path)
+            if onnx_baseline is not None:
+                entry.update(onnx_baseline)
         if path.suffix.lower() == ".json":
             tokens = _try_tokens(path)
             if tokens is not None:

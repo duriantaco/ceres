@@ -18,7 +18,7 @@ ceres scan .
 | Layer       | Examples |
 |-------------|----------|
 | Code        | `trust_remote_code=True`, `pickle.load`, `torch.load` without `weights_only=True`, `eval`/`exec`, unrestricted agent tools, risky tools without approval, poisoned tool/MCP descriptions |
-| Models      | `.pkl`/`.pickle` artifacts, unsafe formats, unknown source/provenance, suspicious pickle opcodes, missing/changed SHA-256, safetensors tensor/layer drift, NaN/Inf/range anomalies, tokenizer / chat-template / LoRA-base drift |
+| Models      | `.pkl`/`.pickle` artifacts, unsafe formats, unknown source/provenance, suspicious pickle opcodes, missing/changed SHA-256, safetensors tensor/layer drift, GGUF/ONNX metadata drift, NaN/Inf/range anomalies, tokenizer / chat-template / LoRA-base drift |
 | Datasets    | missing manifest, missing/stale hash, source not in allowlist, duplicate-rate spikes, label distribution drift vs. baseline, sudden rare-trigger trigrams |
 | Eval/safety | disabled safety or regression eval gates, lowered safety thresholds, disabled filters/guardrails, high generation temperature |
 | RAG corpus  | prompt-injection phrases (`ignore previous instructions`, etc.), unsafe user-doc indexing, missing retrieval filters, permission checks after retrieval, hidden HTML / display:none, HTML comments with instructions, zero-width / bidi control chars, large base64 blobs |
@@ -193,6 +193,10 @@ Implemented static checks:
 - dtype changes
 - NaN/Inf values and configured absolute-value range anomalies
 - L2 norm drift and sparsity drift compared with baseline
+- GGUF header/metadata/tensor-inventory parsing with architecture, metadata, and
+  tensor-count drift checks
+- ONNX protobuf metadata parsing with opset, graph operator-summary, and model
+  metadata drift checks
 - LoRA adapter metadata changes such as base model mismatch
 - tokenizer, special-token, and chat-template changes that can hide behavior
   shifts outside obvious weight tensors
@@ -200,7 +204,7 @@ Implemented static checks:
 Planned checks:
 
 - cross-layer outlier scoring for tensor families with similar roles
-- ONNX/GGUF metadata and graph-level inspection
+- deeper ONNX graph-shape and GGUF tokenizer policy inspection
 
 Good finding wording:
 

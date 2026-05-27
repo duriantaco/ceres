@@ -14,6 +14,8 @@ severity_gate:
 ```
 
 The CLI exits non-zero when a finding reaches a severity configured as `fail`.
+If `--policy` is provided, the file must exist and all policy keys must be
+known. Unknown or misspelled keys fail the scan instead of being ignored.
 
 ## Model Policy
 
@@ -33,6 +35,10 @@ model_policy:
   tensor_norm_drift_ratio: 0.50
   tensor_sparsity_drift_ratio: 0.20
   max_tensor_abs_value: 1000000.0
+  max_gguf_metadata_bytes: 67108864
+  max_gguf_string_bytes: 1048576
+  max_onnx_string_bytes: 1048576
+  max_onnx_nodes: 200000
 ```
 
 Use `approved_model_sources` to restrict model configs and adjacent provenance
@@ -124,3 +130,4 @@ waivers:
 
 Expired waivers no longer suppress findings and emit
 `ceres.policy.waiver_expired`.
+Malformed waivers emit `ceres.policy.waiver_invalid` and fail closed.

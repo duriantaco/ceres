@@ -28,6 +28,8 @@ usually miss.
 - invalid or oversized safetensors headers
 - tensor added/removed/shape/dtype/hash drift
 - tensor NaN/Inf/range/norm/sparsity anomalies
+- GGUF header/metadata parsing and architecture/metadata/tensor-count drift
+- ONNX protobuf metadata parsing and opset/operator/metadata drift
 - tokenizer, chat-template, and LoRA base-model drift
 
 ## Datasets
