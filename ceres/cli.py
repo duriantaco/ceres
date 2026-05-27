@@ -10,7 +10,7 @@ from rich.console import Console
 from ceres import __version__
 from ceres.analyzers.bom.aibom import write_bom
 from ceres.baseline.store import build_baseline, save_baseline
-from ceres.config import DEFAULT_POLICY_YAML, Policy
+from ceres.config import DEFAULT_POLICY_YAML, Policy, PolicyError
 from ceres.findings.severity import gate
 from ceres.gitdiff import DiffError, collect_git_diff, filter_findings_for_diff
 from ceres.inventory.walker import build_inventory
@@ -70,8 +70,8 @@ def init(
 @app.command()
 def scan(
     path: Path = typer.Argument(Path("."), help="Repository root"),
-    policy_path: Path = typer.Option(
-        Path("ceres.yml"), "--policy", "-p", help="Policy file (ceres.yml)"
+    policy_path: Optional[Path] = typer.Option(
+        None, "--policy", "-p", help="Policy file (default: ceres.yml if present)"
     ),
     baseline: Optional[Path] = typer.Option(
         None, "--baseline", help="Baseline file (default: .ceres/baseline.json if present)"
@@ -91,8 +91,19 @@ def scan(
     ),
 ) -> None:
     root = _repo_root(path)
-    resolved_policy = _under_root(root, policy_path)
-    policy = Policy.load(resolved_policy if resolved_policy and resolved_policy.exists() else None)
+    if policy_path is None:
+        default_policy = root / "ceres.yml"
+        resolved_policy = default_policy if default_policy.exists() else None
+    else:
+        resolved_policy = _under_root(root, policy_path)
+        if resolved_policy is None or not resolved_policy.exists():
+            console.print(f"[red]Policy file not found:[/red] {resolved_policy}")
+            raise typer.Exit(2)
+    try:
+        policy = Policy.load(resolved_policy)
+    except PolicyError as e:
+        console.print(f"[red]Policy error:[/red] {e}")
+        raise typer.Exit(2) from e
 
     if fail_on:
         gates = policy.severity_gate.as_dict()
@@ -274,6 +285,7 @@ def list_rules() -> None:
             "ceres.eval.generation_temperature_high",
             "ceres.aibom.coverage_missing",
             "ceres.policy.waiver_expired",
+            "ceres.policy.waiver_invalid",
             "ceres.engine.analyzer_failed",
         }
     )

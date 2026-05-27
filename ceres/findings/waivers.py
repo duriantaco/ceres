@@ -29,15 +29,29 @@ class Waiver:
         return today > self.expires
 
 
+class WaiverError(ValueError):
+    pass
+
+
 def parse_waivers(raw: list[dict]) -> list[Waiver]:
     out: list[Waiver] = []
-    for item in raw or []:
+    for idx, item in enumerate(raw or []):
+        if not isinstance(item, dict):
+            raise WaiverError(f"waivers[{idx}] must be a mapping")
+        rule_id = item.get("rule_id")
+        if not isinstance(rule_id, str) or not rule_id.strip():
+            raise WaiverError(f"waivers[{idx}].rule_id is required")
         expires = item.get("expires")
         if isinstance(expires, str):
-            expires = _dt.date.fromisoformat(expires)
+            try:
+                expires = _dt.date.fromisoformat(expires)
+            except ValueError as e:
+                raise WaiverError(f"waivers[{idx}].expires must be YYYY-MM-DD") from e
+        elif expires is not None and not isinstance(expires, _dt.date):
+            raise WaiverError(f"waivers[{idx}].expires must be YYYY-MM-DD")
         out.append(
             Waiver(
-                rule_id=item["rule_id"],
+                rule_id=rule_id,
                 file=item.get("file"),
                 reason=item.get("reason", ""),
                 expires=expires,

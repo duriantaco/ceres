@@ -130,9 +130,20 @@ def _read_parquet(path: Path, max_rows: int) -> Iterator[dict]:
         import pyarrow.parquet as pq  # type: ignore
     except ImportError:
         return iter([])
-    table = pq.read_table(path)
-    rows = table.to_pylist()
-    return iter(rows[:max_rows])
+    if max_rows <= 0:
+        return iter([])
+    pf = pq.ParquetFile(path)
+
+    def rows() -> Iterator[dict]:
+        remaining = max_rows
+        for batch in pf.iter_batches(batch_size=min(65536, max_rows)):
+            for row in batch.to_pylist():
+                if remaining <= 0:
+                    return
+                yield row
+                remaining -= 1
+
+    return rows()
 
 
 def _sha256_file(path: Path) -> str:

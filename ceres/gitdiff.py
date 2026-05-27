@@ -67,6 +67,7 @@ _BOM_RELEVANT_SUFFIXES = {
     ".pickle",
     ".joblib",
 }
+_MAX_UNTRACKED_TEXT_BYTES = 1024 * 1024
 
 
 def collect_git_diff(root: Path, base_ref: str) -> DiffContext:
@@ -227,9 +228,14 @@ def _to_scan_rel(ctx: DiffContext, git_path: str) -> str | None:
 
 def _line_count(path: Path) -> int:
     try:
-        return len(path.read_text(encoding="utf-8", errors="replace").splitlines())
+        if path.stat().st_size > _MAX_UNTRACKED_TEXT_BYTES:
+            return 0
+        data = path.read_bytes()
     except OSError:
         return 0
+    if b"\x00" in data[:8192]:
+        return 0
+    return len(data.decode("utf-8", errors="replace").splitlines())
 
 
 def _has_bom_relevant_change(diff: DiffContext) -> bool:
