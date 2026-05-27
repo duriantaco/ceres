@@ -50,6 +50,10 @@ class ModelPolicy(BaseModel):
     tensor_norm_drift_ratio: float = 0.50
     tensor_sparsity_drift_ratio: float = 0.20
     max_tensor_abs_value: float = 1_000_000.0
+    max_gguf_metadata_bytes: int = 64 * 1024 * 1024
+    max_gguf_string_bytes: int = 1024 * 1024
+    max_onnx_string_bytes: int = 1024 * 1024
+    max_onnx_nodes: int = 200_000
     suspicious_tensor_name_patterns: list[str] = Field(
         default_factory=lambda: [
             "backdoor",
@@ -191,6 +195,10 @@ model_policy:
   tensor_norm_drift_ratio: 0.50
   tensor_sparsity_drift_ratio: 0.20
   max_tensor_abs_value: 1000000.0
+  max_gguf_metadata_bytes: 67108864
+  max_gguf_string_bytes: 1048576
+  max_onnx_string_bytes: 1048576
+  max_onnx_nodes: 200000
   suspicious_tensor_name_patterns:
     - backdoor
     - trigger

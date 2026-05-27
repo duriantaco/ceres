@@ -95,6 +95,43 @@ The current scenarios cover:
 - unpinned git dependency
 - Docker base image not pinned by digest
 
+## Real Artifact Fixture Tests
+
+Unit tests use small synthetic artifacts for deterministic parser coverage.
+Release validation should also run the pinned model fixture corpus:
+
+```bash
+python scripts/model_fixture_check.py \
+  --corpus examples/model-fixture-corpus.yml \
+  --workdir /tmp/ceres-model-fixtures \
+  --json-out /tmp/ceres-model-fixtures/report.json
+```
+
+The checker downloads each fixture, verifies its SHA-256, asserts expected
+metadata from the Ceres parser, and then creates configured corruptions to make
+sure malformed artifacts emit the expected Ceres rule.
+
+The same fixtures can also be run through pytest:
+
+```bash
+CERES_RUN_REAL_MODEL_FIXTURES=1 python -m pytest tests/test_model_real_fixtures_integration.py
+```
+
+That downloads pinned, SHA-256-checked fixtures for:
+
+- an official ONNX backend `test_add` model
+- Mozilla's tiny GGUF llama test model
+
+If `torch` is installed, run the real `torch.save` checkpoint check:
+
+```bash
+CERES_RUN_TORCH_FIXTURE=1 python -m pytest tests/test_model_real_fixtures_integration.py
+```
+
+These tests are not part of default PR CI because they either need network
+access or optional heavyweight ML dependencies. They are intended for release,
+nightly, or pre-merge validation environments that can provide those resources.
+
 ## CI Use
 
 Use this as a nightly or pre-release job against a curated repo corpus. Keep
@@ -136,6 +173,11 @@ jobs:
             --corpus examples/real-world-corpus.yml \
             --workdir /tmp/ceres-real-world \
             --json-out /tmp/ceres-real-world/report.json
+      - run: |
+          python scripts/model_fixture_check.py \
+            --corpus examples/model-fixture-corpus.yml \
+            --workdir /tmp/ceres-model-fixtures \
+            --json-out /tmp/ceres-model-fixtures/report.json
 ```
 
 For private corpora, mount or checkout the repos before running the harness.

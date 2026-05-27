@@ -1,0 +1,30 @@
+fixtures:
+  - name: onnx-backend-test-add
+    kind: onnx
+    url: https://raw.githubusercontent.com/onnx/onnx/main/onnx/backend/test/data/node/test_add/model.onnx
+    sha256: 93cf0438706cddabf683adc8b13c8a17c4b8b12d8bccb1b041268e1f4dff0a2d
+    expected:
+      ir_version: 7
+      producer_name: backend-test
+      graph_name: test_add
+      opset_imports:
+        "": 14
+      node_op_counts:
+        Add: 1
+    corruptions:
+      - truncate: 16
+        expected_rule: ceres.model.onnx.header_invalid
+
+  - name: mozilla-tiny-llama-gguf
+    kind: gguf
+    url: https://huggingface.co/Mozilla/llama-test-model/resolve/main/tiny-llama.gguf
+    sha256: bbe1bd9e2d3671b980f32c70820f2cecd03c6d45dacff6f88a23a39da2d904c1
+    expected:
+      version: 3
+      tensor_count: 12
+      metadata_kv_count: 26
+      metadata:
+        general.architecture: llama
+    corruptions:
+      - truncate: 16
+        expected_rule: ceres.model.gguf.header_invalid

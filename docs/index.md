@@ -22,7 +22,7 @@ description: Static security scanning for AI models, datasets, RAG corpora, prom
     </div>
   </div>
   <div class="ceres-panel">
-    <div class="ceres-stat">79 rules</div>
+    <div class="ceres-stat">91 rules</div>
     <p>Static checks across code, models, datasets, evals, RAG, prompts, agent
     tools, supply chain, policy, and AI-BOM coverage.</p>
     <pre><code>ceres scan .
@@ -41,7 +41,8 @@ not understand:
   <div class="ceres-signal">
     <strong>Model Integrity</strong>
     Unsafe loaders, pickle-backed artifacts, provenance gaps, safetensors header
-    issues, tensor/layer drift, and suspicious numeric stats.
+    issues, GGUF/ONNX metadata drift, tensor/layer drift, and suspicious numeric
+    stats.
   </div>
   <div class="ceres-signal">
     <strong>RAG And Prompt Risk</strong>

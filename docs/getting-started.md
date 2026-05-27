@@ -49,9 +49,9 @@ ceres baseline .
 git add .ceres/baseline.json
 ```
 
-The baseline records model hashes, safetensors tensor metadata/stats, tokenizer
-state, dataset fingerprints, and RAG inventory. Future scans compare current
-state against this known-good snapshot.
+The baseline records model hashes, safetensors tensor metadata/stats, GGUF/ONNX
+metadata summaries, tokenizer state, dataset fingerprints, and RAG inventory.
+Future scans compare current state against this known-good snapshot.
 
 ## Run Scan
 
