@@ -139,3 +139,20 @@ def test_root_temperature_without_ai_context_is_not_flagged(tmp_path):
     cfg.write_text("temperature: 1.4\n")
     findings, _suppressed, _counts, _passed, _inv = run_scan(repo, Policy(), None, None)
     assert "ceres.eval.generation_temperature_high" in _rule_ids(findings)
+
+
+def test_eval_safety_python_assignments_are_scanned(tmp_path):
+    repo = tmp_path / "repo"
+    src = repo / "src"
+    src.mkdir(parents=True)
+    (src / "eval_config.py").write_text(
+        "skip_safety_eval = True\n"
+        "enable_content_filter: bool = False\n"
+        "generation_config = {'temperature': 1.4}\n"
+    )
+
+    findings, _suppressed, _counts, _passed, _inv = run_scan(repo, Policy(), None, None)
+    rule_ids = _rule_ids(findings)
+    assert "ceres.eval.safety_eval_disabled" in rule_ids
+    assert "ceres.eval.safety_filter_disabled" in rule_ids
+    assert "ceres.eval.generation_temperature_high" in rule_ids
